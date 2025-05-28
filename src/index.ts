@@ -1,9 +1,9 @@
-import * as core from '@actions/core';
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import {ComponentIdentifier} from './ComponentIdentifier';
 import axios, {AxiosError, AxiosRequestConfig} from 'axios';
-import {Agent} from "https";
+import * as core from '@actions/core';
+import * as github from '@actions/github';
 
 export interface Dependency {
   identifier: ComponentIdentifier;
@@ -79,6 +79,8 @@ async function run(): Promise<void> {
         }
       }
     }
+
+    await postComment();
 
   } catch (error) {
     core.setFailed(`❌ Failed to read dependency-tree.txt: ${(error as Error).message}`);
@@ -358,6 +360,41 @@ if (username && password) {
 }
 
 return config;
+}
+
+async function postComment() {
+  try {
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) throw new Error('GITHUB_TOKEN is not defined');
+
+    const octokit = github.getOctokit(token);
+    const context = github.context;
+
+    // Ensure this is a pull request event
+    const pullRequestNumber = context.payload.pull_request?.number;
+    if (!pullRequestNumber) {
+      core.info('Not a pull request – skipping comment.');
+      return;
+    }
+
+    const owner = context.repo.owner;
+    const repo = context.repo.repo;
+
+    const commentBody = `👋 Hello from your custom action!
+I just analyzed your PR and here’s something cool: 🎉`;
+
+    await octokit.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: pullRequestNumber,
+      body: commentBody,
+    });
+
+    core.info('✅ Comment posted to PR');
+
+  } catch (error) {
+    core.setFailed((error as Error).message);
+  }
 }
 
 
