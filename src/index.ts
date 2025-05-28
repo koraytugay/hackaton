@@ -65,22 +65,39 @@ async function run(): Promise<void> {
       }
     }
 
+    let commentBody = 'New components introduced:\n';
+
     for (let i = 0; i < diff.length; i++) {
       core.info('Sending request for direct dependency..');
-      core.info(`${diff[i].identifier.getName()} ${diff[i].identifier.getVersion()}`);
-      const componentSummary = await getComponentSummary(diff[i].identifier);
+      const directDependency = diff[i];
+      core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
+      let componentSummary = await getComponentSummary(directDependency.identifier);
+      commentBody = commentBody + `${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
+      if (componentSummary?.alerts) {
+        for (const alert of componentSummary.alerts) {
+          commentBody = commentBody + `${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n`;
+        }
+      }
       core.info(JSON.stringify(componentSummary));
-      if (diff[i].children) {
+      if (directDependency.children) {
         core.info('Sending request for transitive dependency..');
-        for (let j = 0; j < diff[i].children.length; j++) {
-          core.info(`\t${diff[i].children[j].identifier.getName()} ${diff[i].children[j].identifier.getVersion()}`);
-          const transitiveSummary = await getComponentSummary(diff[i].children[j].identifier);
+        for (let j = 0; j < directDependency.children.length; j++) {
+          let childDependency = directDependency.children[j];
+          core.info(`\t${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}`);
+          const transitiveSummary = await getComponentSummary(childDependency.identifier);
+          componentSummary = await getComponentSummary(childDependency.identifier);
+          commentBody = commentBody + `${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}\n`;
+          if (componentSummary?.alerts) {
+            for (const alert of componentSummary.alerts) {
+              commentBody = commentBody + `${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n`;
+            }
+          }
           core.info(JSON.stringify(transitiveSummary));
         }
       }
     }
 
-    await postComment();
+    await postComment(commentBody);
 
   } catch (error) {
     core.setFailed(`❌ Failed to read dependency-tree.txt: ${(error as Error).message}`);
@@ -362,7 +379,7 @@ if (username && password) {
 return config;
 }
 
-async function postComment() {
+async function postComment(commentBody: string) {
   try {
     const token = process.env.GITHUB_TOKEN;
     if (!token) throw new Error('GITHUB_TOKEN is not defined');
@@ -380,8 +397,7 @@ async function postComment() {
     const owner = context.repo.owner;
     const repo = context.repo.repo;
 
-    const commentBody = `👋 Hello from your custom action!
-I just analyzed your PR and here’s something cool: 🎉`;
+    // const commentBody = `👋 Hello from your custom action! I just analyzed your PR and here’s something cool: 🎉`;
 
     await octokit.rest.issues.createComment({
       owner,

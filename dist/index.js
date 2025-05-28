@@ -38255,21 +38255,41 @@ async function run() {
         }
       }
     }
+    let commentBody = "New components introduced:\n";
     for (let i = 0; i < diff.length; i++) {
       core.info("Sending request for direct dependency..");
-      core.info(`${diff[i].identifier.getName()} ${diff[i].identifier.getVersion()}`);
-      const componentSummary = await getComponentSummary(diff[i].identifier);
+      const directDependency = diff[i];
+      core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
+      let componentSummary = await getComponentSummary(directDependency.identifier);
+      commentBody = commentBody + `${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
+`;
+      if (componentSummary?.alerts) {
+        for (const alert of componentSummary.alerts) {
+          commentBody = commentBody + `${alert.trigger.threatLevel} - ${alert.trigger.policyName}
+`;
+        }
+      }
       core.info(JSON.stringify(componentSummary));
-      if (diff[i].children) {
+      if (directDependency.children) {
         core.info("Sending request for transitive dependency..");
-        for (let j = 0; j < diff[i].children.length; j++) {
-          core.info(`	${diff[i].children[j].identifier.getName()} ${diff[i].children[j].identifier.getVersion()}`);
-          const transitiveSummary = await getComponentSummary(diff[i].children[j].identifier);
+        for (let j = 0; j < directDependency.children.length; j++) {
+          let childDependency = directDependency.children[j];
+          core.info(`	${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}`);
+          const transitiveSummary = await getComponentSummary(childDependency.identifier);
+          componentSummary = await getComponentSummary(childDependency.identifier);
+          commentBody = commentBody + `${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}
+`;
+          if (componentSummary?.alerts) {
+            for (const alert of componentSummary.alerts) {
+              commentBody = commentBody + `${alert.trigger.threatLevel} - ${alert.trigger.policyName}
+`;
+            }
+          }
           core.info(JSON.stringify(transitiveSummary));
         }
       }
     }
-    await postComment();
+    await postComment(commentBody);
   } catch (error) {
     core.setFailed(`\u274C Failed to read dependency-tree.txt: ${error.message}`);
   }
@@ -38427,7 +38447,7 @@ async function getAxiosConfig(url2, username = void 0, password = void 0, timeou
   }
   return config;
 }
-async function postComment() {
+async function postComment(commentBody) {
   try {
     const token = process.env.GITHUB_TOKEN;
     if (!token)
@@ -38441,8 +38461,6 @@ async function postComment() {
     }
     const owner = context2.repo.owner;
     const repo = context2.repo.repo;
-    const commentBody = `\u{1F44B} Hello from your custom action!
-I just analyzed your PR and here\u2019s something cool: \u{1F389}`;
     await octokit.rest.issues.createComment({
       owner,
       repo,
