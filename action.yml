@@ -1,0 +1,6 @@
+name: 'Hello World Action'
+description: 'A simple hello world GitHub Action'
+author: 'Your Name'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
