@@ -24,6 +24,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/@actions/core/lib/utils.js
 var require_utils = __commonJS({
@@ -19874,21 +19875,212 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
 });
 
 // src/index.ts
+var src_exports = {};
+module.exports = __toCommonJS(src_exports);
 var core = __toESM(require_core());
 var import_fs = require("fs");
 var path = __toESM(require("path"));
+
+// src/ComponentIdentifier.ts
+var MAVEN = "maven";
+var ComponentIdentifier = class _ComponentIdentifier {
+  constructor(format, coordinates) {
+    this.format = format;
+    this.coordinates = coordinates;
+  }
+  getName() {
+    return this.coordinates.get("artifactId");
+  }
+  getVersion() {
+    const version = this.coordinates.get("version");
+    return version ? version : "n/a";
+  }
+  setVersion(version) {
+    this.coordinates.set("version", version);
+  }
+  equals(b) {
+    if (b === void 0) {
+      return false;
+    }
+    if (this === b) {
+      return true;
+    }
+    if (this.format !== b.format) {
+      return false;
+    }
+    for (const key of this.coordinates.keys()) {
+      if (this.coordinates.get(key) !== b.coordinates.get(key)) {
+        return false;
+      }
+    }
+    for (const key of b.coordinates.keys()) {
+      if (!this.coordinates.has(key)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  /**
+   * @returns a simpler JSON, used in IQ API requests and responses, in which the `coordinates` look like a plain object
+   */
+  toJson() {
+    return JSON.stringify(this, _ComponentIdentifier.replacer);
+  }
+  static replacer(key, value) {
+    if (key === "coordinates" && value instanceof Map) {
+      let result = "{";
+      for (const entry of value) {
+        result += (result.length > 1 ? ',"' : '"') + entry[0] + '":"' + entry[1] + '"';
+      }
+      return JSON.parse(result + "}");
+    }
+    return value;
+  }
+  static createMavenIdentifier(groupId, artifactId, extension, classifier, version) {
+    const coordinates = /* @__PURE__ */ new Map();
+    coordinates.set("groupId", groupId);
+    coordinates.set("artifactId", artifactId);
+    coordinates.set("version", version);
+    coordinates.set("classifier", classifier);
+    coordinates.set("extension", extension);
+    return new _ComponentIdentifier(MAVEN, coordinates);
+  }
+};
+
+// src/index.ts
 function run() {
   try {
     const filePath = path.resolve(process.cwd(), "dependency-tree.txt");
-    const content = (0, import_fs.readFileSync)(filePath, "utf-8");
+    const dependencyTreeOutput = (0, import_fs.readFileSync)(filePath, "utf-8");
     core.info("\u2705 Successfully read dependency-tree.txt");
     core.info("\u{1F4C4} First few lines:");
-    content.split("\n").slice(0, 20).forEach((line, index) => {
+    dependencyTreeOutput.split("\n").slice(0, 20).forEach((line, index) => {
       core.info(`${index + 1}: ${line}`);
     });
+    const dependencyArray = parseDependencyTreeOutput(dependencyTreeOutput);
+    core.info(JSON.stringify(dependencyArray));
   } catch (error) {
     core.setFailed(`\u274C Failed to read dependency-tree.txt: ${error.message}`);
   }
+}
+function parseDependencyTreeOutput(dependencyTreeOutput) {
+  let dependencies = new Array();
+  const dependencyTreeOutputLines = dependencyTreeOutput.split(/\r?\n/);
+  let inDiagraphSection = false;
+  const allModules = [];
+  let thisModule = [];
+  for (const dependencyTreeOutputLine of dependencyTreeOutputLines) {
+    if (dependencyTreeOutputLine.startsWith("[INFO] digraph")) {
+      thisModule = [];
+      inDiagraphSection = true;
+      continue;
+    }
+    if (dependencyTreeOutputLine === "[INFO]  } ") {
+      inDiagraphSection = false;
+      allModules.push(thisModule);
+      thisModule = [];
+      continue;
+    }
+    if (inDiagraphSection) {
+      thisModule.push(dependencyTreeOutputLine);
+    }
+  }
+  const diagraphLineSplitter = /"([^"]+)" -> "([^"]+)"/;
+  for (const module2 of allModules) {
+    if (module2.length === 0) {
+      continue;
+    }
+    const parsedDependencies = /* @__PURE__ */ new Map();
+    for (const diagraphLine of module2) {
+      let mavenCoordinates;
+      const matches = diagraphLineSplitter.exec(diagraphLine);
+      const left = matches[1];
+      const right = matches[2];
+      let leftDependency;
+      if (parsedDependencies.get(left) !== void 0) {
+        leftDependency = parsedDependencies.get(left);
+      } else {
+        mavenCoordinates = left.split(":");
+        leftDependency = createDependencyFromMavenCoordinates(mavenCoordinates);
+        parsedDependencies.set(left, leftDependency);
+        if ("test" === leftDependency.scope) {
+          dependencies.push(leftDependency);
+        } else {
+          dependencies.push(leftDependency);
+        }
+      }
+      let rightDependency;
+      if (parsedDependencies.get(right) !== void 0) {
+        rightDependency = parsedDependencies.get(right);
+      } else {
+        mavenCoordinates = right.split(":");
+        rightDependency = createDependencyFromMavenCoordinates(mavenCoordinates);
+        parsedDependencies.set(right, rightDependency);
+      }
+      if ("test" === rightDependency.scope) {
+        leftDependency.children.push(rightDependency);
+      } else {
+        leftDependency.children.push(rightDependency);
+      }
+    }
+  }
+  dependencies = dependencies.filter((value) => value.identifier.coordinates.get("extension") !== "pom");
+  if (dependencies.length > 1) {
+    dependencies.forEach((dependency) => {
+      dependency.children = dependency.children.filter(
+        (child) => !dependencies.some((dep) => child.identifier.equals(dep.identifier))
+      );
+      dependency.isDirect = void 0;
+      dependency.isModule = true;
+      dependency.children.forEach((child) => {
+        child.isDirect = true;
+      });
+    });
+  }
+  if (dependencies.length === 1) {
+    dependencies = dependencies[0].children.map((dep) => ({ ...dep, isDirect: true }));
+  }
+  return dependencies;
+}
+function createDependencyFromMavenCoordinates(mavenCoordinates) {
+  let identifier;
+  let scope = void 0;
+  if (mavenCoordinates.length === 4) {
+    identifier = ComponentIdentifier.createMavenIdentifier(
+      mavenCoordinates[0],
+      mavenCoordinates[1],
+      mavenCoordinates[2],
+      "",
+      // classifier is optional and can be missing
+      mavenCoordinates[3]
+    );
+  } else if (mavenCoordinates.length === 5) {
+    identifier = ComponentIdentifier.createMavenIdentifier(
+      mavenCoordinates[0],
+      mavenCoordinates[1],
+      mavenCoordinates[2],
+      "",
+      // classifier is optional and can be missing
+      mavenCoordinates[3]
+    );
+    scope = mavenCoordinates[4];
+  } else {
+    identifier = ComponentIdentifier.createMavenIdentifier(
+      mavenCoordinates[0],
+      mavenCoordinates[1],
+      mavenCoordinates[2],
+      mavenCoordinates[3],
+      mavenCoordinates[4]
+    );
+    scope = mavenCoordinates[5];
+  }
+  return {
+    identifier,
+    scope,
+    children: new Array(),
+    isModule: false,
+    isDirect: false
+  };
 }
 run();
 /*! Bundled license information:
