@@ -23,8 +23,7 @@ function run(): void {
     });
 
     const dependencyArray = parseDependencyTreeOutput(dependencyTreeOutput);
-    core.info(`${dependencyArray}`);
-    core.info(JSON.stringify(dependencyArray));
+
   } catch (error) {
     core.setFailed(`❌ Failed to read dependency-tree.txt: ${(error as Error).message}`);
   }
@@ -154,6 +153,8 @@ function parseDependencyTreeOutput(dependencyTreeOutput: string): Dependency[] |
 }
 
 function createDependencyFromMavenCoordinates(mavenCoordinates: string[]): Dependency {
+  core.info(`Creating maven dependency from coordinates: ${mavenCoordinates}`);
+
   let identifier;
   let scope = undefined;
   if (mavenCoordinates.length === 4) {
