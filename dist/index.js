@@ -19958,6 +19958,7 @@ function run() {
       core.info(`${index + 1}: ${line}`);
     });
     const dependencyArray = parseDependencyTreeOutput(dependencyTreeOutput);
+    core.info(`${dependencyArray}`);
     core.info(JSON.stringify(dependencyArray));
   } catch (error) {
     core.setFailed(`\u274C Failed to read dependency-tree.txt: ${error.message}`);
