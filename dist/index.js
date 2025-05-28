@@ -20081,7 +20081,8 @@ function createDependencyFromMavenCoordinates(mavenCoordinates) {
     isModule: false,
     isDirect: false
   };
-  core.info(`Returning dependency: ${JSON.stringify(dependency)}`);
+  core.info(`Returning dependency: ${dependency.identifier.getName()}`);
+  core.info(`Returning dependency: ${dependency.identifier.getVersion()}`);
   return dependency;
 }
 run();

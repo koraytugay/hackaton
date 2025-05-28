@@ -193,7 +193,8 @@ function createDependencyFromMavenCoordinates(mavenCoordinates: string[]): Depen
     isDirect: false,
   } as Dependency;
 
-  core.info(`Returning dependency: ${JSON.stringify(dependency)}`);
+  core.info(`Returning dependency: ${dependency.identifier.getName()}`);
+  core.info(`Returning dependency: ${dependency.identifier.getVersion()}`);
 
   return dependency;
 }
