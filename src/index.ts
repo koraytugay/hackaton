@@ -2,6 +2,8 @@ import * as core from '@actions/core';
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import {ComponentIdentifier} from './ComponentIdentifier';
+import axios, {AxiosError, AxiosRequestConfig} from 'axios';
+import {Agent} from "https";
 
 export interface Dependency {
   identifier: ComponentIdentifier;
@@ -11,7 +13,7 @@ export interface Dependency {
   isDirect: boolean | undefined; // if undefined, we do not know whether or not direct or transitive
 }
 
-function run(): void {
+async function run(): Promise<void> {
   try {
     let filePath = path.resolve(process.cwd(), 'source-dependency-tree.txt');
     const sourceDependencyTree = readFileSync(filePath, 'utf-8');
@@ -53,10 +55,27 @@ function run(): void {
 
     core.info('New components:');
     for (let i = 0; i < diff.length; i++) {
+      core.info('New direct dependency:');
       core.info(`${diff[i].identifier.getName()} ${diff[i].identifier.getVersion()}`);
       if (diff[i].children) {
+        core.info('Transitive dependencies:');
         for (let j = 0; j < diff[i].children.length; j++) {
-          core.info(`${diff[i].children[j].identifier.getName()} ${diff[i].children[j].identifier.getVersion()}`);
+          core.info(`\t${diff[i].children[j].identifier.getName()} ${diff[i].children[j].identifier.getVersion()}`);
+        }
+      }
+    }
+
+    for (let i = 0; i < diff.length; i++) {
+      core.info('Sending request for direct dependency..');
+      core.info(`${diff[i].identifier.getName()} ${diff[i].identifier.getVersion()}`);
+      const componentSummary = await getComponentSummary(diff[i].identifier);
+      core.info(JSON.stringify(componentSummary));
+      if (diff[i].children) {
+        core.info('Sending request for transitive dependency..');
+        for (let j = 0; j < diff[i].children.length; j++) {
+          core.info(`\t${diff[i].children[j].identifier.getName()} ${diff[i].children[j].identifier.getVersion()}`);
+          const transitiveSummary = await getComponentSummary(diff[i].children[j].identifier);
+          core.info(JSON.stringify(transitiveSummary));
         }
       }
     }
@@ -234,6 +253,111 @@ function createDependencyFromMavenCoordinates(mavenCoordinates: string[]): Depen
   core.info(`Returning dependency: ${dependency.identifier.getVersion()}`);
 
   return dependency;
+}
+
+class ComponentSummary {
+  alerts: PolicyAlert[];
+  matchState: string;
+
+  constructor(policyAlerts: PolicyAlert[], matchState: string) {
+    this.alerts = policyAlerts;
+    this.matchState = matchState;
+  }
+}
+
+class PolicyAlert {
+  trigger: Trigger;
+
+  constructor(trigger: Trigger) {
+    this.trigger = trigger;
+  }
+}
+
+class Trigger {
+  threatLevel: number;
+  policyName: string;
+  componentFacts: ComponentFact[];
+
+  constructor(threatLevel: number, policyName: string, componentFacts: ComponentFact[]) {
+    this.threatLevel = threatLevel;
+    this.policyName = policyName;
+    this.componentFacts = componentFacts;
+  }
+}
+
+class ComponentFact {
+  constraintName: string;
+  constraintFacts: ConstraintFact[];
+
+  constructor(constraintName: string, constraintFacts: ConstraintFact[]) {
+    this.constraintName = constraintName;
+    this.constraintFacts = constraintFacts;
+  }
+}
+
+class ConstraintFact {
+  constraintName: string;
+  conditionFacts: ConditionFact[];
+
+  constructor(constraintName: string, conditionFacts: ConditionFact[]) {
+    this.constraintName = constraintName;
+    this.conditionFacts = conditionFacts;
+  }
+}
+
+class ConditionFact {
+  summary: string;
+  reason: string;
+
+  constructor(summary: string, reason: string) {
+    this.summary = summary;
+    this.reason = reason;
+  }
+}
+
+
+async function getComponentSummary(
+    componentIdentifier: ComponentIdentifier,
+): Promise<ComponentSummary | undefined> {
+  const iqServerUrl = 'https://int-test.sonatype.app/platform'
+  const username = process.env.USERNAME;
+  const password = process.env.PASSWORD;
+
+
+  if (!iqServerUrl || !username || !password) {
+    core.info('IQ Server is not authenticated due to missing configuration.');
+    return undefined;
+  }
+
+  const url = `${iqServerUrl}/rest/ide/scan/coordinates/kt-test?componentIdentifier=${componentIdentifier.toJson()}`;
+  try {
+    const config = await getAxiosConfig(url, username, password, 5000);
+    const response = await axios.get(url, config);
+    const componentSummary: ComponentSummary = response.data[0];
+    return componentSummary;
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      core.info(`${error}`);
+    }
+    throw error;
+  }
+}
+
+async function getAxiosConfig(
+    url: string,
+    username: string | undefined = undefined,
+    password: string | undefined = undefined,
+    timeout: number = 1000,
+): Promise<AxiosRequestConfig> {
+  const config: AxiosRequestConfig = {
+  timeout,
+};
+
+if (username && password) {
+  config.auth = { username, password };
+}
+
+return config;
 }
 
 
