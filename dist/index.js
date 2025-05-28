@@ -20074,13 +20074,15 @@ function createDependencyFromMavenCoordinates(mavenCoordinates) {
     );
     scope = mavenCoordinates[5];
   }
-  return {
+  const dependency = {
     identifier,
     scope,
     children: new Array(),
     isModule: false,
     isDirect: false
   };
+  core.info(`Returning dependency: ${JSON.stringify(dependency)}`);
+  return dependency;
 }
 run();
 /*! Bundled license information:

@@ -185,13 +185,17 @@ function createDependencyFromMavenCoordinates(mavenCoordinates: string[]): Depen
     scope = mavenCoordinates[5];
   }
 
-  return {
+  const dependency = {
     identifier: identifier,
     scope,
     children: new Array<Dependency>(),
     isModule: false,
     isDirect: false,
   } as Dependency;
+
+  core.info(`Returning dependency: ${JSON.stringify(dependency)}`);
+
+  return dependency;
 }
 
 
