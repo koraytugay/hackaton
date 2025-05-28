@@ -13,16 +13,53 @@ export interface Dependency {
 
 function run(): void {
   try {
-    const filePath = path.resolve(process.cwd(), 'dependency-tree.txt');
-    const dependencyTreeOutput = readFileSync(filePath, 'utf-8');
+    let filePath = path.resolve(process.cwd(), 'source-dependency-tree.txt');
+    const sourceDependencyTree = readFileSync(filePath, 'utf-8');
 
-    core.info('✅ Successfully read dependency-tree.txt');
+    core.info('✅ Successfully read source-dependency-tree.txt');
     core.info('📄 First few lines:');
-    dependencyTreeOutput.split('\n').slice(0, 20).forEach((line, index) => {
+    sourceDependencyTree.split('\n').slice(0, 20).forEach((line, index) => {
       core.info(`${index + 1}: ${line}`);
     });
 
-    const dependencyArray = parseDependencyTreeOutput(dependencyTreeOutput);
+    const sourceDependencies = parseDependencyTreeOutput(sourceDependencyTree) as Dependency[];
+
+    filePath = path.resolve(process.cwd(), 'master-dependency-tree.txt');
+    const masterDependencyTree = readFileSync(filePath, 'utf-8');
+
+    core.info('✅ Successfully read master-dependency-tree.txt');
+    core.info('📄 First few lines:');
+    masterDependencyTree.split('\n').slice(0, 20).forEach((line, index) => {
+      core.info(`${index + 1}: ${line}`);
+    });
+
+    const masterDependencies = parseDependencyTreeOutput(masterDependencyTree) as Dependency[];
+
+    const diff = [];
+
+    for (let i = 0; i < sourceDependencies.length; i++) {
+      let existsInMaster = false;
+      for (let j = 0; j < masterDependencies.length; j++) {
+        if (sourceDependencies[i].identifier.getName() === masterDependencies[j].identifier.getName()) {
+          if (sourceDependencies[i].identifier.getVersion() === masterDependencies[j].identifier.getVersion()) {
+            existsInMaster = true;
+          }
+        }
+      }
+      if (!existsInMaster) {
+        diff.push(sourceDependencies[i]);
+      }
+    }
+
+    core.info('New components:');
+    for (let i = 0; i < diff.length; i++) {
+      core.info(`${diff[i].identifier.getName()} ${diff[i].identifier.getVersion()}`);
+      if (diff[i].children) {
+        for (let j = 0; j < diff[i].children.length; j++) {
+          core.info(`${diff[i].children[j].identifier.getName()} ${diff[i].children[j].identifier.getVersion()}`);
+        }
+      }
+    }
 
   } catch (error) {
     core.setFailed(`❌ Failed to read dependency-tree.txt: ${(error as Error).message}`);
