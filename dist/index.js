@@ -19958,7 +19958,7 @@ function run() {
       core.info(`${index + 1}: ${line}`);
     });
     const sourceDependencies = parseDependencyTreeOutput(sourceDependencyTree);
-    filePath = path.resolve(process.cwd(), "master-dependency-tree.txt");
+    filePath = path.resolve(process.cwd(), "master", "master-dependency-tree.txt");
     const masterDependencyTree = (0, import_fs.readFileSync)(filePath, "utf-8");
     core.info("\u2705 Successfully read master-dependency-tree.txt");
     core.info("\u{1F4C4} First few lines:");

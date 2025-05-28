@@ -24,7 +24,7 @@ function run(): void {
 
     const sourceDependencies = parseDependencyTreeOutput(sourceDependencyTree) as Dependency[];
 
-    filePath = path.resolve(process.cwd(), 'master-dependency-tree.txt');
+    filePath = path.resolve(process.cwd(), 'master', 'master-dependency-tree.txt');
     const masterDependencyTree = readFileSync(filePath, 'utf-8');
 
     core.info('✅ Successfully read master-dependency-tree.txt');
