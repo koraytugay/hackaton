@@ -65,19 +65,29 @@ async function run(): Promise<void> {
       }
     }
 
-    let commentBody = 'New components introduced:\n';
+    let commentBody = '# Nexus IQ Found Policy Violations Introduced in this PR\n\n';
 
     for (let i = 0; i < diff.length; i++) {
       core.info('Sending request for direct dependency..');
       const directDependency = diff[i];
       core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
       let componentSummary = await getComponentSummary(directDependency.identifier);
+      commentBody = '## Direct Dependency\n\n'
       commentBody = commentBody + `${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
       if (componentSummary?.alerts) {
         for (const alert of componentSummary.alerts) {
-          commentBody = commentBody + `${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n`;
+          commentBody = commentBody + `### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n\n`;
+          for (let componentFact of alert.trigger.componentFacts) {
+            for (let constraintFact of componentFact.constraintFacts) {
+              for (let conditionFact of constraintFact.conditionFacts) {
+                commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.reason}\n`
+                commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.summary}\n`
+              }
+            }
+          }
         }
       }
+
       core.info(JSON.stringify(componentSummary));
       if (directDependency.children) {
         core.info('Sending request for transitive dependency..');
@@ -89,7 +99,15 @@ async function run(): Promise<void> {
           commentBody = commentBody + `${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}\n`;
           if (componentSummary?.alerts) {
             for (const alert of componentSummary.alerts) {
-              commentBody = commentBody + `${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n`;
+              commentBody = commentBody + `### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n\n`;
+              for (let componentFact of alert.trigger.componentFacts) {
+                for (let constraintFact of componentFact.constraintFacts) {
+                  for (let conditionFact of constraintFact.conditionFacts) {
+                    commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.reason}\n`
+                    commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.summary}\n`
+                  }
+                }
+              }
             }
           }
           core.info(JSON.stringify(transitiveSummary));
