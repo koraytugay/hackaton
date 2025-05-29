@@ -38261,7 +38261,7 @@ async function run() {
       const directDependency = diff[i];
       core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
       let componentSummary = await getComponentSummary(directDependency.identifier);
-      commentBody = commentBody + `'## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
+      commentBody = commentBody + `## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
 `;
       if (componentSummary?.alerts) {
         for (const alert of componentSummary.alerts) {
@@ -38286,7 +38286,7 @@ async function run() {
           core.info(`	${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}`);
           const transitiveSummary = await getComponentSummary(childDependency.identifier);
           componentSummary = await getComponentSummary(childDependency.identifier);
-          commentBody = commentBody + `'### Transitive Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
+          commentBody = commentBody + `### Transitive Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
 `;
           if (componentSummary?.alerts) {
             for (const alert of componentSummary.alerts) {

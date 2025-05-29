@@ -72,7 +72,7 @@ async function run(): Promise<void> {
       const directDependency = diff[i];
       core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
       let componentSummary = await getComponentSummary(directDependency.identifier);
-      commentBody = commentBody + `'## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
+      commentBody = commentBody + `## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
       if (componentSummary?.alerts) {
         for (const alert of componentSummary.alerts) {
           commentBody = commentBody + `#### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n\n`;
@@ -96,7 +96,7 @@ async function run(): Promise<void> {
           const transitiveSummary = await getComponentSummary(childDependency.identifier);
           componentSummary = await getComponentSummary(childDependency.identifier);
           // commentBody = commentBody + `${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}\n`;
-          commentBody = commentBody + `'### Transitive Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
+          commentBody = commentBody + `### Transitive Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
           if (componentSummary?.alerts) {
             for (const alert of componentSummary.alerts) {
               commentBody = commentBody + `#### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n\n`;
