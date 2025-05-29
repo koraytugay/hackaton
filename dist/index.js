@@ -38286,7 +38286,7 @@ async function run() {
           core.info(`	${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}`);
           const transitiveSummary = await getComponentSummary(childDependency.identifier);
           componentSummary = await getComponentSummary(childDependency.identifier);
-          commentBody = commentBody + `### Transitive Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
+          commentBody = commentBody + `### Transitive Dependency: ${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}
 `;
           if (componentSummary?.alerts) {
             for (const alert of componentSummary.alerts) {
