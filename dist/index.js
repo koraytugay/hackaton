@@ -38261,20 +38261,17 @@ async function run() {
       const directDependency = diff[i];
       core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
       let componentSummary = await getComponentSummary(directDependency.identifier);
-      commentBody = "## Direct Dependency\n\n";
-      commentBody = commentBody + `${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
+      commentBody = commentBody + `'## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
 `;
       if (componentSummary?.alerts) {
         for (const alert of componentSummary.alerts) {
-          commentBody = commentBody + `### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}
+          commentBody = commentBody + `#### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}
 
 `;
           for (let componentFact of alert.trigger.componentFacts) {
             for (let constraintFact of componentFact.constraintFacts) {
               for (let conditionFact of constraintFact.conditionFacts) {
                 commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.reason}
-`;
-                commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.summary}
 `;
               }
             }
@@ -38289,19 +38286,17 @@ async function run() {
           core.info(`	${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}`);
           const transitiveSummary = await getComponentSummary(childDependency.identifier);
           componentSummary = await getComponentSummary(childDependency.identifier);
-          commentBody = commentBody + `${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}
+          commentBody = commentBody + `'### Transitive Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
 `;
           if (componentSummary?.alerts) {
             for (const alert of componentSummary.alerts) {
-              commentBody = commentBody + `### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}
+              commentBody = commentBody + `#### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}
 
 `;
               for (let componentFact of alert.trigger.componentFacts) {
                 for (let constraintFact of componentFact.constraintFacts) {
                   for (let conditionFact of constraintFact.conditionFacts) {
                     commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.reason}
-`;
-                    commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.summary}
 `;
                   }
                 }
