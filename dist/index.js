@@ -38244,6 +38244,10 @@ async function run() {
         diff.push(sourceDependencies[i]);
       }
     }
+    if (diff.length == 0) {
+      await postComment("No new components introduced..");
+      return;
+    }
     core.info("New components:");
     for (let i = 0; i < diff.length; i++) {
       core.info("New direct dependency:");
