@@ -38263,12 +38263,14 @@ async function run() {
       let componentSummary = await getComponentSummary(directDependency.identifier);
       commentBody = commentBody + `## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
 `;
+      commentBody = commentBody + "|Threat Level|Policy|Constraint|Reason|\n";
+      commentBody = commentBody + "|--|--|--|--|\n";
       if (componentSummary?.alerts) {
         for (const alert of componentSummary.alerts) {
-          commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
           for (let componentFact of alert.trigger.componentFacts) {
             for (let constraintFact of componentFact.constraintFacts) {
               for (let conditionFact of constraintFact.conditionFacts) {
+                commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
                 commentBody = commentBody + `|${constraintFact.constraintName}|${conditionFact.reason}|
 `;
               }
@@ -38286,12 +38288,14 @@ async function run() {
           componentSummary = await getComponentSummary(childDependency.identifier);
           commentBody = commentBody + `### Transitive Dependency: ${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}
 `;
+          commentBody = commentBody + "|Threat Level|Policy|Constraint|Reason|\n";
+          commentBody = commentBody + "|--|--|--|--|\n";
           if (componentSummary?.alerts) {
             for (const alert of componentSummary.alerts) {
-              commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
               for (let componentFact of alert.trigger.componentFacts) {
                 for (let constraintFact of componentFact.constraintFacts) {
                   for (let conditionFact of constraintFact.conditionFacts) {
+                    commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
                     commentBody = commentBody + `|${constraintFact.constraintName}|${conditionFact.reason}|
 `;
                   }
