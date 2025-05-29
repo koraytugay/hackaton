@@ -38216,16 +38216,16 @@ async function run() {
   try {
     let filePath = path.resolve(process.cwd(), "source-dependency-tree.txt");
     const sourceDependencyTree = (0, import_fs.readFileSync)(filePath, "utf-8");
-    core.info("\u2705 Successfully read source-dependency-tree.txt");
-    core.info("\u{1F4C4} First few lines:");
+    core.info("Successfully read source-dependency-tree.txt");
+    core.info("First few lines:");
     sourceDependencyTree.split("\n").slice(0, 20).forEach((line, index) => {
       core.info(`${index + 1}: ${line}`);
     });
     const sourceDependencies = parseDependencyTreeOutput(sourceDependencyTree);
     filePath = path.resolve(process.cwd(), "master", "master-dependency-tree.txt");
     const masterDependencyTree = (0, import_fs.readFileSync)(filePath, "utf-8");
-    core.info("\u2705 Successfully read master-dependency-tree.txt");
-    core.info("\u{1F4C4} First few lines:");
+    core.info("Successfully read master-dependency-tree.txt");
+    core.info("First few lines:");
     masterDependencyTree.split("\n").slice(0, 20).forEach((line, index) => {
       core.info(`${index + 1}: ${line}`);
     });
@@ -38265,13 +38265,11 @@ async function run() {
 `;
       if (componentSummary?.alerts) {
         for (const alert of componentSummary.alerts) {
-          commentBody = commentBody + `#### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}
-
-`;
+          commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
           for (let componentFact of alert.trigger.componentFacts) {
             for (let constraintFact of componentFact.constraintFacts) {
               for (let conditionFact of constraintFact.conditionFacts) {
-                commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.reason}
+                commentBody = commentBody + `|${constraintFact.constraintName}|${conditionFact.reason}|
 `;
               }
             }
@@ -38290,13 +38288,11 @@ async function run() {
 `;
           if (componentSummary?.alerts) {
             for (const alert of componentSummary.alerts) {
-              commentBody = commentBody + `#### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}
-
-`;
+              commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
               for (let componentFact of alert.trigger.componentFacts) {
                 for (let constraintFact of componentFact.constraintFacts) {
                   for (let conditionFact of constraintFact.conditionFacts) {
-                    commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.reason}
+                    commentBody = commentBody + `|${constraintFact.constraintName}|${conditionFact.reason}|
 `;
                   }
                 }

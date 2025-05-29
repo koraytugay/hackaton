@@ -18,8 +18,8 @@ async function run(): Promise<void> {
     let filePath = path.resolve(process.cwd(), 'source-dependency-tree.txt');
     const sourceDependencyTree = readFileSync(filePath, 'utf-8');
 
-    core.info('✅ Successfully read source-dependency-tree.txt');
-    core.info('📄 First few lines:');
+    core.info('Successfully read source-dependency-tree.txt');
+    core.info('First few lines:');
     sourceDependencyTree.split('\n').slice(0, 20).forEach((line, index) => {
       core.info(`${index + 1}: ${line}`);
     });
@@ -29,8 +29,8 @@ async function run(): Promise<void> {
     filePath = path.resolve(process.cwd(), 'master', 'master-dependency-tree.txt');
     const masterDependencyTree = readFileSync(filePath, 'utf-8');
 
-    core.info('✅ Successfully read master-dependency-tree.txt');
-    core.info('📄 First few lines:');
+    core.info('Successfully read master-dependency-tree.txt');
+    core.info('First few lines:');
     masterDependencyTree.split('\n').slice(0, 20).forEach((line, index) => {
       core.info(`${index + 1}: ${line}`);
     });
@@ -75,11 +75,11 @@ async function run(): Promise<void> {
       commentBody = commentBody + `## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
       if (componentSummary?.alerts) {
         for (const alert of componentSummary.alerts) {
-          commentBody = commentBody + `#### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n\n`;
+          commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
           for (let componentFact of alert.trigger.componentFacts) {
             for (let constraintFact of componentFact.constraintFacts) {
               for (let conditionFact of constraintFact.conditionFacts) {
-                commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.reason}\n`
+                commentBody = commentBody + `|${constraintFact.constraintName}|${conditionFact.reason}|\n`
                 // commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.summary}\n`
               }
             }
@@ -99,11 +99,11 @@ async function run(): Promise<void> {
           commentBody = commentBody + `### Transitive Dependency: ${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}\n`;
           if (componentSummary?.alerts) {
             for (const alert of componentSummary.alerts) {
-              commentBody = commentBody + `#### ${alert.trigger.threatLevel} - ${alert.trigger.policyName}\n\n`;
+              commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
               for (let componentFact of alert.trigger.componentFacts) {
                 for (let constraintFact of componentFact.constraintFacts) {
                   for (let conditionFact of constraintFact.conditionFacts) {
-                    commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.reason}\n`
+                    commentBody = commentBody + `|${constraintFact.constraintName}|${conditionFact.reason}|\n`
                     // commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.summary}\n`
                   }
                 }
