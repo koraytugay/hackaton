@@ -38347,7 +38347,7 @@ async function run() {
 `;
     commentBody += `\u2022 Introduced: ${introducedCount} direct
 `;
-    commentBody += `\u2022 Solved: ${removedCount} direct
+    commentBody += `\u2022 Removed: ${removedCount} direct
 `;
     commentBody += `\u2022 Upgrades: ${upgradeCount}
 

@@ -221,7 +221,7 @@ async function run(): Promise<void> {
     let commentBody = `# Nexus IQ Report for this PR\n\n`;
     commentBody += `**Summary**\n`;
     commentBody += `• Introduced: ${introducedCount} direct\n`;
-    commentBody += `• Solved: ${removedCount} direct\n`;
+    commentBody += `• Removed: ${removedCount} direct\n`;
     commentBody += `• Upgrades: ${upgradeCount}\n\n`;
 
     // Upgrades
