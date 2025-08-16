@@ -15,6 +15,33 @@ export interface Dependency {
   isDirect: boolean | undefined; // if undefined, we do not know whether or not direct or transitive
 }
 
+// ADD near the top, after interfaces
+const keyOf = (d: Dependency) => `${d.identifier.getName()}@${d.identifier.getVersion()}`;
+
+function computeDiff(left: Dependency[], right: Dependency[]): Dependency[] {
+  const rightSet = new Set(right.map(keyOf));
+  return left.filter(d => !rightSet.has(keyOf(d)));
+}
+
+function renderAlertsTable(componentSummary?: ComponentSummary): string {
+  let out = '';
+  out += '|Threat Level|Policy|Constraint|Reason|\n';
+  out += '|--|--|--|--|\n';
+
+  if (componentSummary?.alerts) {
+    for (const alert of componentSummary.alerts) {
+      for (const componentFact of alert.trigger.componentFacts) {
+        for (const constraintFact of componentFact.constraintFacts) {
+          for (const conditionFact of constraintFact.conditionFacts) {
+            out += `|${alert.trigger.threatLevel}|${alert.trigger.policyName}|${constraintFact.constraintName}|${conditionFact.reason}|\n`;
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
 async function run(): Promise<void> {
   try {
     let filePath = path.resolve(process.cwd(), 'source-dependency-tree.txt');
@@ -39,93 +66,88 @@ async function run(): Promise<void> {
 
     const masterDependencies = parseDependencyTreeOutput(masterDependencyTree) as Dependency[];
 
-    const diff = [];
+    const introduced = computeDiff(sourceDependencies, masterDependencies);
+    const removed = computeDiff(masterDependencies, sourceDependencies);
 
-    for (let i = 0; i < sourceDependencies.length; i++) {
-      let existsInMaster = false;
-      for (let j = 0; j < masterDependencies.length; j++) {
-        if (sourceDependencies[i].identifier.getName() === masterDependencies[j].identifier.getName()) {
-          if (sourceDependencies[i].identifier.getVersion() === masterDependencies[j].identifier.getVersion()) {
-            existsInMaster = true;
-          }
-        }
-      }
-      if (!existsInMaster) {
-        diff.push(sourceDependencies[i]);
-      }
-    }
-
-    if (diff.length == 0) {
-      await postComment('No new components introduced..');
+// Early exit if nothing changed at all
+    if (introduced.length === 0 && removed.length === 0) {
+      await postComment('No new components introduced and no previous components removed.');
       return;
     }
 
-    core.info('New components:');
-    for (let i = 0; i < diff.length; i++) {
-      core.info('New direct dependency:');
-      core.info(`${diff[i].identifier.getName()} ${diff[i].identifier.getVersion()}`);
-      if (diff[i].children) {
-        core.info('Transitive dependencies:');
-        for (let j = 0; j < diff[i].children.length; j++) {
-          core.info(`\t${diff[i].children[j].identifier.getName()} ${diff[i].children[j].identifier.getVersion()}`);
+// Log for visibility
+    if (introduced.length) {
+      core.info('New components introduced:');
+      introduced.forEach(d => {
+        core.info(`${d.identifier.getName()} ${d.identifier.getVersion()}`);
+        if (d.children?.length) {
+          core.info('Transitives:');
+          d.children.forEach(c =>
+              core.info(`\t${c.identifier.getName()} ${c.identifier.getVersion()}`),
+          );
+        }
+      });
+    }
+
+    if (removed.length) {
+      core.info('Components removed (potentially solved violations):');
+      removed.forEach(d => {
+        core.info(`${d.identifier.getName()} ${d.identifier.getVersion()}`);
+        if (d.children?.length) {
+          core.info('Transitives:');
+          d.children.forEach(c =>
+              core.info(`\t${c.identifier.getName()} ${c.identifier.getVersion()}`),
+          );
+        }
+      });
+    }
+
+    let commentBody = '';
+
+    /** Introduced section (existing behavior, refactored a bit) */
+    if (introduced.length) {
+      commentBody += '# Nexus IQ Found Policy Violations Introduced in this PR\n\n';
+
+      for (const directDependency of introduced) {
+        core.info('Sending request for direct dependency (introduced)..');
+        core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
+
+        const directSummary = await getComponentSummary(directDependency.identifier);
+        commentBody += `## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
+        commentBody += renderAlertsTable(directSummary);
+
+        if (directDependency.children?.length) {
+          core.info('Sending request for transitive dependencies (introduced)..');
+          for (const child of directDependency.children) {
+            core.info(`\t${child.identifier.getName()} ${child.identifier.getVersion()}`);
+            const transitiveSummary = await getComponentSummary(child.identifier);
+            commentBody += `### Transitive Dependency: ${child.identifier.getName()} ${child.identifier.getVersion()}\n`;
+            commentBody += renderAlertsTable(transitiveSummary);
+          }
         }
       }
     }
 
-    let commentBody = '# Nexus IQ Found Policy Violations Introduced in this PR\n\n';
+    /** Solved section (NEW) */
+    if (removed.length) {
+      commentBody += '\n# Nexus IQ Found Determined Violations Solved in this PR\n\n';
 
-    for (let i = 0; i < diff.length; i++) {
-      core.info('Sending request for direct dependency..');
-      const directDependency = diff[i];
-      core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
-      let componentSummary = await getComponentSummary(directDependency.identifier);
-      commentBody = commentBody + `## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
+      for (const directDependency of removed) {
+        core.info('Sending request for direct dependency (removed/solved)..');
+        core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
 
-      commentBody = commentBody + '|Threat Level|Policy|Constraint|Reason|\n';
-      commentBody = commentBody + '|--|--|--|--|\n';
+        const directSummary = await getComponentSummary(directDependency.identifier);
+        commentBody += `## Direct Dependency Removed: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}\n`;
+        commentBody += renderAlertsTable(directSummary);
 
-      if (componentSummary?.alerts) {
-        for (const alert of componentSummary.alerts) {
-          for (let componentFact of alert.trigger.componentFacts) {
-            for (let constraintFact of componentFact.constraintFacts) {
-              for (let conditionFact of constraintFact.conditionFacts) {
-                commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
-                commentBody = commentBody + `|${constraintFact.constraintName}|${conditionFact.reason}|\n`
-                // commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.summary}\n`
-              }
-            }
+        if (directDependency.children?.length) {
+          core.info('Sending request for transitive dependencies (removed/solved)..');
+          for (const child of directDependency.children) {
+            core.info(`\t${child.identifier.getName()} ${child.identifier.getVersion()}`);
+            const transitiveSummary = await getComponentSummary(child.identifier);
+            commentBody += `### Transitive Dependency Removed: ${child.identifier.getName()} ${child.identifier.getVersion()}\n`;
+            commentBody += renderAlertsTable(transitiveSummary);
           }
-        }
-      }
-
-      core.info(JSON.stringify(componentSummary));
-      if (directDependency.children) {
-        core.info('Sending request for transitive dependency..');
-        for (let j = 0; j < directDependency.children.length; j++) {
-          let childDependency = directDependency.children[j];
-          core.info(`\t${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}`);
-          const transitiveSummary = await getComponentSummary(childDependency.identifier);
-          componentSummary = await getComponentSummary(childDependency.identifier);
-          // commentBody = commentBody + `${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}\n`;
-          commentBody = commentBody + `### Transitive Dependency: ${childDependency.identifier.getName()} ${childDependency.identifier.getVersion()}\n`;
-
-          commentBody = commentBody + '|Threat Level|Policy|Constraint|Reason|\n';
-          commentBody = commentBody + '|--|--|--|--|\n';
-
-          if (componentSummary?.alerts) {
-            for (const alert of componentSummary.alerts) {
-              for (let componentFact of alert.trigger.componentFacts) {
-                for (let constraintFact of componentFact.constraintFacts) {
-                  for (let conditionFact of constraintFact.conditionFacts) {
-                    commentBody = commentBody + `|${alert.trigger.threatLevel}|${alert.trigger.policyName}`;
-                    commentBody = commentBody + `|${constraintFact.constraintName}|${conditionFact.reason}|\n`
-                    // commentBody = commentBody + `- ${constraintFact.constraintName} - ${conditionFact.summary}\n`
-                  }
-                }
-              }
-            }
-          }
-          core.info(JSON.stringify(transitiveSummary));
         }
       }
     }
