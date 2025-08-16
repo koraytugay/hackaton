@@ -38345,32 +38345,8 @@ async function run() {
     commentBody += "\n";
     commentBody += `\u2022 Version changed: ${upgradeCount} dependencies`;
     commentBody += "\n";
-    if (upgrades.length) {
-      commentBody += "## \u{1F504} Version Changes";
-      commentBody += "\n";
-      for (const u of upgrades) {
-        const name = u.name;
-        const before = versionOf(u.from);
-        const after = versionOf(u.to);
-        commentBody += startDetails(`<strong>${name}</strong>>: ${before} \u2192 ${after}`);
-        const beforeSummary = await getComponentSummary(u.from.identifier);
-        commentBody += `**Before \`${before}\`**
-
-`;
-        commentBody += renderAlertsTable(beforeSummary);
-        const afterSummary = await getComponentSummary(u.to.identifier);
-        commentBody += `
-
-**After \`${after}\`**
-
-`;
-        commentBody += renderAlertsTable(afterSummary);
-        commentBody += endDetails();
-      }
-      commentBody += "\n";
-    }
     if (introduced.length) {
-      commentBody += "## \u26A0\uFE0F Nexus IQ Found Policy Violations Introduced in this PR\n\n";
+      commentBody += "## New Components\n\n";
       for (const dep of introduced) {
         const title = `Direct: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
@@ -38393,8 +38369,32 @@ async function run() {
       }
       commentBody += "\n";
     }
+    if (upgrades.length) {
+      commentBody += "## Version Changes";
+      commentBody += "\n";
+      for (const u of upgrades) {
+        const name = u.name;
+        const before = versionOf(u.from);
+        const after = versionOf(u.to);
+        commentBody += startDetails(`<strong>${name}</strong>>: ${before} \u2192 ${after}`);
+        const beforeSummary = await getComponentSummary(u.from.identifier);
+        commentBody += `**Before \`${before}\`**
+
+`;
+        commentBody += renderAlertsTable(beforeSummary);
+        const afterSummary = await getComponentSummary(u.to.identifier);
+        commentBody += `
+
+**After \`${after}\`**
+
+`;
+        commentBody += renderAlertsTable(afterSummary);
+        commentBody += endDetails();
+      }
+      commentBody += "\n";
+    }
     if (removed.length) {
-      commentBody += "## \u2705 Nexus IQ Found Determined Violations Solved in this PR\n\n";
+      commentBody += "## Removed Components\n\n";
       for (const dep of removed) {
         const title = `Direct Removed: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);

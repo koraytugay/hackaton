@@ -228,9 +228,32 @@ async function run(): Promise<void> {
     commentBody += `• Version changed: ${upgradeCount} dependencies`;
     commentBody += '\n';
 
-    // Upgrades
+    // Introduced
+    if (introduced.length) {
+      commentBody += '## New Components\n\n';
+      for (const dep of introduced) {
+        const title = `Direct: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
+        commentBody += startDetails(title);
+
+        const directSummary = await getComponentSummary(dep.identifier);
+        commentBody += renderAlertsTable(directSummary);
+
+        if (dep.children?.length) {
+          for (const child of dep.children) {
+            const childSummary = await getComponentSummary(child.identifier);
+            if (!childSummary?.alerts?.length) continue; // skip quiet transitives
+            commentBody += `\n\n**Transitive: \`${nameOf(child)} ${versionOf(child)}\`**\n\n`;
+            commentBody += renderAlertsTable(childSummary);
+          }
+        }
+
+        commentBody += endDetails();
+      }
+      commentBody += '\n';
+    }
+
     if (upgrades.length) {
-      commentBody += '## 🔄 Version Changes';
+      commentBody += '## Version Changes';
       commentBody += '\n';
       for (const u of upgrades) {
         const name = u.name;
@@ -254,33 +277,9 @@ async function run(): Promise<void> {
       commentBody += '\n';
     }
 
-    // Introduced
-    if (introduced.length) {
-      commentBody += '## ⚠️ Nexus IQ Found Policy Violations Introduced in this PR\n\n';
-      for (const dep of introduced) {
-        const title = `Direct: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
-        commentBody += startDetails(title);
-
-        const directSummary = await getComponentSummary(dep.identifier);
-        commentBody += renderAlertsTable(directSummary);
-
-        if (dep.children?.length) {
-          for (const child of dep.children) {
-            const childSummary = await getComponentSummary(child.identifier);
-            if (!childSummary?.alerts?.length) continue; // skip quiet transitives
-            commentBody += `\n\n**Transitive: \`${nameOf(child)} ${versionOf(child)}\`**\n\n`;
-            commentBody += renderAlertsTable(childSummary);
-          }
-        }
-
-        commentBody += endDetails();
-      }
-      commentBody += '\n';
-    }
-
     // Solved (Removed)
     if (removed.length) {
-      commentBody += '## ✅ Nexus IQ Found Determined Violations Solved in this PR\n\n';
+      commentBody += '## Removed Components\n\n';
       for (const dep of removed) {
         const title = `Direct Removed: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
