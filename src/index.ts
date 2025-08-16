@@ -130,6 +130,10 @@ function renderAlertsTable(summary?: ComponentSummary, opts: { max?: number } = 
   const rows: string[] = [];
 
   if (summary?.alerts) {
+    summary.alerts = [...summary.alerts].sort(
+        (a, b) => b.trigger.threatLevel - a.trigger.threatLevel
+    );
+
     for (const alert of summary.alerts) {
       const sev = severityBadge(alert.trigger.threatLevel);
       for (const cf of alert.trigger.componentFacts) {
