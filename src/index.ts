@@ -216,15 +216,21 @@ async function run(): Promise<void> {
     const removedCount = removed.length;
     const upgradeCount = upgrades.length;
 
-    let commentBody = `# Nexus IQ Report for this PR\n\n`;
+    let commentBody = `# Nexus IQ Report for this PR`;
+    commentBody += '\n\n';
     commentBody += `## Summary`;
-    commentBody += `• Introduced: ${introducedCount} direct\n`;
-    commentBody += `• Removed: ${removedCount} direct\n`;
-    commentBody += `• Upgrades: ${upgradeCount}\n\n`;
+    commentBody += '\n';
+    commentBody += `• Introduced ${introducedCount} new dependencies`;
+    commentBody += '\n';
+    commentBody += `• Removed: ${removedCount} dependencies`;
+    commentBody += '\n';
+    commentBody += `• Version changed: ${upgradeCount} dependencies`;
+    commentBody += '\n';
 
     // Upgrades
     if (upgrades.length) {
       commentBody += '## Upgrades';
+      commentBody += '\n';
       for (const u of upgrades) {
         const name = u.name;
         const before = versionOf(u.from);

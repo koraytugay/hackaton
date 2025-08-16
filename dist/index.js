@@ -38338,19 +38338,19 @@ async function run() {
     const introducedCount = introduced.length;
     const removedCount = removed.length;
     const upgradeCount = upgrades.length;
-    let commentBody = `# Nexus IQ Report for this PR
-
-`;
+    let commentBody = `# Nexus IQ Report for this PR`;
+    commentBody += "\n\n";
     commentBody += `## Summary`;
-    commentBody += `\u2022 Introduced: ${introducedCount} direct
-`;
-    commentBody += `\u2022 Removed: ${removedCount} direct
-`;
-    commentBody += `\u2022 Upgrades: ${upgradeCount}
-
-`;
+    commentBody += "\n";
+    commentBody += `\u2022 Introduced ${introducedCount} new dependencies`;
+    commentBody += "\n";
+    commentBody += `\u2022 Removed: ${removedCount} dependencies`;
+    commentBody += "\n";
+    commentBody += `\u2022 Version changed: ${upgradeCount} dependencies`;
+    commentBody += "\n";
     if (upgrades.length) {
       commentBody += "## Upgrades";
+      commentBody += "\n";
       for (const u of upgrades) {
         const name = u.name;
         const before = versionOf(u.from);
