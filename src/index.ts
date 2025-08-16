@@ -122,6 +122,22 @@ function endDetails() {
   return '\n</details>\n';
 }
 
+function getNumberOfViolations(summary: ComponentSummary | undefined, threshold: number) {
+  if (!summary) {
+    return 0;
+  }
+
+  let count = 0;
+
+  for (const alert of summary.alerts) {
+    if (alert.trigger && alert.trigger.threatLevel && alert.trigger.threatLevel >= threshold) {
+      count++;
+    }
+  }
+
+  return count;
+}
+
 function renderAlertsTable(summary?: ComponentSummary) {
   const rows: string[] = [];
 
@@ -528,3 +544,4 @@ async function postComment(commentBody: string, opts: { mode?: 'update' | 'repla
 }
 
 run();
+
