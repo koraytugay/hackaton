@@ -38352,7 +38352,7 @@ async function run() {
     commentBody += `\u2022 Version changed: ${upgradeCount} dependencies`;
     commentBody += "\n";
     if (upgrades.length) {
-      commentBody += "## Upgrades";
+      commentBody += "## \u{1F504} Version Changes";
       commentBody += "\n";
       for (const u of upgrades) {
         const name = u.name;

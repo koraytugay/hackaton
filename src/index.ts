@@ -233,7 +233,7 @@ async function run(): Promise<void> {
 
     // Upgrades
     if (upgrades.length) {
-      commentBody += '## Upgrades';
+      commentBody += '## 🔄 Version Changes';
       commentBody += '\n';
       for (const u of upgrades) {
         const name = u.name;
