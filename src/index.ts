@@ -79,11 +79,11 @@ const versionOf = (d: Dependency) => d.identifier.getVersion();
 type SevInfo = { label: string; color: string };
 
 function severityInfo(n: number): SevInfo {
-  if (n >= 8) return { label: `'' + ${n}`,  color: 'bf001f' }; // severity.critical
-  if (n >= 4) return { label: `'' + ${n}`,    color: 'fc6d07' }; // severity.severe
-  if (n >= 2) return { label: `'' + ${n}`,  color: 'feb628' }; // severity.moderate
-  if (n >  1) return { label: `'' + ${n}`,       color: '3942a8' }; // severity.low
-  if (n === 0) return { label: `'' + ${n}`,     color: '15a2ff' }; // severity.none
+  if (n >= 8) return { label: `${n}`,  color: 'bf001f' }; // severity.critical
+  if (n >= 4) return { label: `${n}`,    color: 'fc6d07' }; // severity.severe
+  if (n >= 2) return { label: `${n}`,  color: 'feb628' }; // severity.moderate
+  if (n >  1) return { label: `${n}`,       color: '3942a8' }; // severity.low
+  if (n === 0) return { label: `${n}`,     color: '15a2ff' }; // severity.none
   return { label: 'Unspecified', color: '000000' };           // severity.unspecified
 }
 
@@ -268,10 +268,12 @@ async function run(): Promise<void> {
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
-            if (!childSummary?.alerts?.length) continue; // skip quiet transitives
-            numberOfTransitiveCritical = getNumberOfViolations(childSummary, 8, 10);
-            numberOfTransitiveHigh = getNumberOfViolations(childSummary, 4, 7);
-            numberOfTransitiveMedium = getNumberOfViolations(childSummary, 2, 3);
+            if (!childSummary?.alerts?.length) {
+              continue;
+            }
+            numberOfTransitiveCritical += getNumberOfViolations(childSummary, 8, 10);
+            numberOfTransitiveHigh += getNumberOfViolations(childSummary, 4, 7);
+            numberOfTransitiveMedium += getNumberOfViolations(childSummary, 2, 3);
           }
         }
 

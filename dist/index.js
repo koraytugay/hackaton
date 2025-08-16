@@ -38218,15 +38218,15 @@ var nameOf = (d) => d.identifier.getName();
 var versionOf = (d) => d.identifier.getVersion();
 function severityInfo(n) {
   if (n >= 8)
-    return { label: `'' + ${n}`, color: "bf001f" };
+    return { label: `${n}`, color: "bf001f" };
   if (n >= 4)
-    return { label: `'' + ${n}`, color: "fc6d07" };
+    return { label: `${n}`, color: "fc6d07" };
   if (n >= 2)
-    return { label: `'' + ${n}`, color: "feb628" };
+    return { label: `${n}`, color: "feb628" };
   if (n > 1)
-    return { label: `'' + ${n}`, color: "3942a8" };
+    return { label: `${n}`, color: "3942a8" };
   if (n === 0)
-    return { label: `'' + ${n}`, color: "15a2ff" };
+    return { label: `${n}`, color: "15a2ff" };
   return { label: "Unspecified", color: "000000" };
 }
 function severityBadge(n) {
@@ -38376,11 +38376,12 @@ async function run() {
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
-            if (!childSummary?.alerts?.length)
+            if (!childSummary?.alerts?.length) {
               continue;
-            numberOfTransitiveCritical = getNumberOfViolations(childSummary, 8, 10);
-            numberOfTransitiveHigh = getNumberOfViolations(childSummary, 4, 7);
-            numberOfTransitiveMedium = getNumberOfViolations(childSummary, 2, 3);
+            }
+            numberOfTransitiveCritical += getNumberOfViolations(childSummary, 8, 10);
+            numberOfTransitiveHigh += getNumberOfViolations(childSummary, 4, 7);
+            numberOfTransitiveMedium += getNumberOfViolations(childSummary, 2, 3);
           }
         }
         if (numberOfTransitiveCritical > 0 || numberOfTransitiveHigh > 0 || numberOfTransitiveMedium > 0) {
