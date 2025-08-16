@@ -38284,9 +38284,13 @@ function renderAlertsTable(summary) {
       const sev = severityBadge(alert.trigger.threatLevel);
       for (const cf of alert.trigger.componentFacts) {
         for (const k of cf.constraintFacts) {
+          let reasons = "";
           for (const cond of k.conditionFacts) {
-            rows.push(`|${sev}|${alert.trigger.policyName}|${k.constraintName}|${cond.reason}|`);
+            reasons += `${cond.reason} 
+`;
           }
+          reasons = reasons.slice(-3);
+          rows.push(`|${sev}|${alert.trigger.policyName}|${k.constraintName}|${reasons}|`);
         }
       }
     }
@@ -38458,7 +38462,7 @@ async function run() {
     }
     await postComment(commentBody);
   } catch (error) {
-    core.setFailed(`\u274C Failed: ${error.message}`);
+    core.setFailed(`Failed: ${error.message}`);
   }
 }
 function parseDependencyTreeOutput(dependencyTreeOutput) {
@@ -38628,15 +38632,15 @@ ${commentBody}`;
         comment_id: previous.id,
         body
       });
-      core.info(`\u2705 Updated existing comment (${previous.id})`);
+      core.info(`Updated existing comment (${previous.id})`);
       return;
     }
     if (previous && mode === "replace") {
       await octokit.rest.issues.deleteComment({ owner, repo, comment_id: previous.id });
-      core.info(`\u{1F5D1}\uFE0F Deleted previous comment (${previous.id})`);
+      core.info(`Deleted previous comment (${previous.id})`);
     }
     await octokit.rest.issues.createComment({ owner, repo, issue_number: pullRequestNumber, body });
-    core.info("\u2705 Created comment on PR");
+    core.info("Created comment on PR");
   } catch (error) {
     core.setFailed(error.message);
   }
