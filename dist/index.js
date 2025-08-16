@@ -38376,7 +38376,7 @@ async function run() {
       commentBody += "\n";
     }
     if (introduced.length) {
-      commentBody += "## \u2795 Nexus IQ Found Policy Violations Introduced in this PR\n\n";
+      commentBody += "## \u26A0\uFE0F Nexus IQ Found Policy Violations Introduced in this PR\n\n";
       for (const dep of introduced) {
         const title = `Direct: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);

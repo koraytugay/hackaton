@@ -259,7 +259,7 @@ async function run(): Promise<void> {
 
     // Introduced
     if (introduced.length) {
-      commentBody += '## ➕ Nexus IQ Found Policy Violations Introduced in this PR\n\n';
+      commentBody += '## ⚠️ Nexus IQ Found Policy Violations Introduced in this PR\n\n';
       for (const dep of introduced) {
         const title = `Direct: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
