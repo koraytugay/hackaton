@@ -38214,25 +38214,81 @@ var core = __toESM(require_core());
 var github = __toESM(require_github());
 var COMMENT_MARKER = "<!-- nx-iq-report:do-not-edit -->";
 var keyOf = (d) => `${d.identifier.getName()}@${d.identifier.getVersion()}`;
+var nameOf = (d) => d.identifier.getName();
+var versionOf = (d) => d.identifier.getVersion();
+var MAX_ROWS_DIRECT = 12;
+var MAX_ROWS_TRANSITIVE = 8;
+function severityInfo(n) {
+  if (Number.isFinite(n)) {
+    if (n >= 8)
+      return { label: "Critical", color: "bf001f" };
+    if (n >= 4)
+      return { label: "Severe", color: "fc6d07" };
+    if (n >= 2)
+      return { label: "Moderate", color: "feb628" };
+    if (n > 1)
+      return { label: "Low", color: "3942a8" };
+    if (n === 0)
+      return { label: "None", color: "15a2ff" };
+  }
+  return { label: "Unspecified", color: "000000" };
+}
+function severityBadge(n) {
+  const { label, color } = severityInfo(n);
+  const labelEnc = encodeURIComponent(label);
+  return `![${label}](https://img.shields.io/badge/${labelEnc}-%20-${color}?style=flat)`;
+}
 function computeDiff(left, right) {
   const rightSet = new Set(right.map(keyOf));
   return left.filter((d) => !rightSet.has(keyOf(d)));
 }
-function renderAlertsTable(componentSummary) {
-  let out = "";
-  out += "|Threat Level|Policy|Constraint|Reason|\n";
-  out += "|--|--|--|--|\n";
-  if (componentSummary?.alerts) {
-    for (const alert of componentSummary.alerts) {
-      for (const componentFact of alert.trigger.componentFacts) {
-        for (const constraintFact of componentFact.constraintFacts) {
-          for (const conditionFact of constraintFact.conditionFacts) {
-            out += `|${alert.trigger.threatLevel}|${alert.trigger.policyName}|${constraintFact.constraintName}|${conditionFact.reason}|
+function detectUpgrades(master, source) {
+  const masterByName = /* @__PURE__ */ new Map();
+  for (const m of master) {
+    masterByName.set(nameOf(m), m);
+  }
+  const upgrades = [];
+  for (const s of source) {
+    const m = masterByName.get(nameOf(s));
+    if (m && versionOf(m) !== versionOf(s)) {
+      upgrades.push({ name: nameOf(s), from: m, to: s });
+    }
+  }
+  return upgrades;
+}
+function startDetails(summary) {
+  return `<details><summary>${summary}</summary>
+
 `;
+}
+function endDetails() {
+  return "\n</details>\n";
+}
+function renderAlertsTable(summary, opts = {}) {
+  const { max } = opts;
+  const rows = [];
+  if (summary?.alerts) {
+    for (const alert of summary.alerts) {
+      const sev = severityBadge(alert.trigger.threatLevel);
+      for (const cf of alert.trigger.componentFacts) {
+        for (const k of cf.constraintFacts) {
+          for (const cond of k.conditionFacts) {
+            rows.push(`|${sev}|${alert.trigger.policyName}|${k.constraintName}|${cond.reason}|`);
           }
         }
       }
     }
+  }
+  const deduped = Array.from(new Set(rows));
+  const limited = typeof max === "number" ? deduped.slice(0, max) : deduped;
+  let out = "";
+  out += "|Severity|Policy|Constraint|Reason|\n";
+  out += "|--|--|--|--|\n";
+  out += limited.join("\n");
+  if (typeof max === "number" && deduped.length > max) {
+    out += `
+|\u2026|\u2026|\u2026|\u2026 and ${deduped.length - max} more|
+`;
   }
   return out;
 }
@@ -38241,95 +38297,137 @@ async function run() {
     let filePath = path.resolve(process.cwd(), "source-dependency-tree.txt");
     const sourceDependencyTree = (0, import_fs.readFileSync)(filePath, "utf-8");
     core.info("Successfully read source-dependency-tree.txt");
-    core.info("First few lines:");
-    sourceDependencyTree.split("\n").slice(0, 20).forEach((line, index) => {
-      core.info(`${index + 1}: ${line}`);
-    });
+    sourceDependencyTree.split("\n").slice(0, 20).forEach((line, index) => core.info(`${index + 1}: ${line}`));
     const sourceDependencies = parseDependencyTreeOutput(sourceDependencyTree);
     filePath = path.resolve(process.cwd(), "master", "master-dependency-tree.txt");
     const masterDependencyTree = (0, import_fs.readFileSync)(filePath, "utf-8");
     core.info("Successfully read master-dependency-tree.txt");
-    core.info("First few lines:");
-    masterDependencyTree.split("\n").slice(0, 20).forEach((line, index) => {
-      core.info(`${index + 1}: ${line}`);
-    });
+    masterDependencyTree.split("\n").slice(0, 20).forEach((line, index) => core.info(`${index + 1}: ${line}`));
     const masterDependencies = parseDependencyTreeOutput(masterDependencyTree);
-    const introduced = computeDiff(sourceDependencies, masterDependencies);
-    const removed = computeDiff(masterDependencies, sourceDependencies);
-    if (introduced.length === 0 && removed.length === 0) {
-      await postComment("No new components introduced and no previous components removed.");
+    const upgrades = detectUpgrades(masterDependencies, sourceDependencies);
+    const introducedRaw = computeDiff(sourceDependencies, masterDependencies);
+    const removedRaw = computeDiff(masterDependencies, sourceDependencies);
+    const introduced = introducedRaw.filter((d) => !upgrades.some((u) => keyOf(u.to) === keyOf(d)));
+    const removed = removedRaw.filter((d) => !upgrades.some((u) => keyOf(u.from) === keyOf(d)));
+    if (introduced.length === 0 && removed.length === 0 && upgrades.length === 0) {
+      await postComment("No dependency changes detected.");
       return;
     }
     if (introduced.length) {
       core.info("New components introduced:");
       introduced.forEach((d) => {
-        core.info(`${d.identifier.getName()} ${d.identifier.getVersion()}`);
+        core.info(`${nameOf(d)} ${versionOf(d)}`);
         if (d.children?.length) {
           core.info("Transitives:");
-          d.children.forEach(
-            (c) => core.info(`	${c.identifier.getName()} ${c.identifier.getVersion()}`)
-          );
+          d.children.forEach((c) => core.info(`	${nameOf(c)} ${versionOf(c)}`));
         }
       });
     }
     if (removed.length) {
       core.info("Components removed (potentially solved violations):");
       removed.forEach((d) => {
-        core.info(`${d.identifier.getName()} ${d.identifier.getVersion()}`);
+        core.info(`${nameOf(d)} ${versionOf(d)}`);
         if (d.children?.length) {
           core.info("Transitives:");
-          d.children.forEach(
-            (c) => core.info(`	${c.identifier.getName()} ${c.identifier.getVersion()}`)
-          );
+          d.children.forEach((c) => core.info(`	${nameOf(c)} ${versionOf(c)}`));
         }
       });
     }
-    let commentBody = "";
+    if (upgrades.length) {
+      core.info("Detected upgrades:");
+      upgrades.forEach((u) => core.info(`${u.name}: ${versionOf(u.from)} -> ${versionOf(u.to)}`));
+    }
+    const introducedCount = introduced.length;
+    const removedCount = removed.length;
+    const upgradeCount = upgrades.length;
+    let commentBody = `# Nexus IQ Report for this PR
+
+`;
+    commentBody += `> **Summary**
+`;
+    commentBody += `> \u2022 Introduced: ${introducedCount} direct
+`;
+    commentBody += `> \u2022 Solved: ${removedCount} direct
+`;
+    commentBody += `> \u2022 Upgrades: ${upgradeCount}
+
+`;
+    commentBody += startDetails("Legend");
+    commentBody += "- \u{1F7E5} High (\u2265 9)\n- \u{1F7E7} Elevated (7\u20138)\n- \u{1F7E8} Moderate (4\u20136)\n- \u{1F7E9} Low (\u2264 3)\n";
+    commentBody += endDetails();
+    if (upgrades.length) {
+      commentBody += "## \u{1F504} Upgrades\n\n";
+      for (const u of upgrades) {
+        const name = u.name;
+        const before = versionOf(u.from);
+        const after = versionOf(u.to);
+        commentBody += startDetails(`**${name}**: ${before} \u2192 ${after}`);
+        const beforeSummary = await getComponentSummary(u.from.identifier);
+        commentBody += `**Before \`${before}\`**
+
+`;
+        commentBody += renderAlertsTable(beforeSummary, { max: MAX_ROWS_DIRECT });
+        const afterSummary = await getComponentSummary(u.to.identifier);
+        commentBody += `
+
+**After \`${after}\`**
+
+`;
+        commentBody += renderAlertsTable(afterSummary, { max: MAX_ROWS_DIRECT });
+        commentBody += endDetails();
+      }
+      commentBody += "\n";
+    }
     if (introduced.length) {
-      commentBody += "# Nexus IQ Found Policy Violations Introduced in this PR\n\n";
-      for (const directDependency of introduced) {
-        core.info("Sending request for direct dependency (introduced)..");
-        core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
-        const directSummary = await getComponentSummary(directDependency.identifier);
-        commentBody += `## Direct Dependency: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
+      commentBody += "## \u2795 Nexus IQ Found Policy Violations Introduced in this PR\n\n";
+      for (const dep of introduced) {
+        const title = `Direct: \`${nameOf(dep)} ${versionOf(dep)}\``;
+        commentBody += startDetails(title);
+        const directSummary = await getComponentSummary(dep.identifier);
+        commentBody += renderAlertsTable(directSummary, { max: MAX_ROWS_DIRECT });
+        if (dep.children?.length) {
+          for (const child of dep.children) {
+            const childSummary = await getComponentSummary(child.identifier);
+            if (!childSummary?.alerts?.length)
+              continue;
+            commentBody += `
+
+**Transitive: \`${nameOf(child)} ${versionOf(child)}\`**
+
 `;
-        commentBody += renderAlertsTable(directSummary);
-        if (directDependency.children?.length) {
-          core.info("Sending request for transitive dependencies (introduced)..");
-          for (const child of directDependency.children) {
-            core.info(`	${child.identifier.getName()} ${child.identifier.getVersion()}`);
-            const transitiveSummary = await getComponentSummary(child.identifier);
-            commentBody += `### Transitive Dependency: ${child.identifier.getName()} ${child.identifier.getVersion()}
-`;
-            commentBody += renderAlertsTable(transitiveSummary);
+            commentBody += renderAlertsTable(childSummary, { max: MAX_ROWS_TRANSITIVE });
           }
         }
+        commentBody += endDetails();
       }
+      commentBody += "\n";
     }
     if (removed.length) {
-      commentBody += "\n# Nexus IQ Found Determined Violations Solved in this PR\n\n";
-      for (const directDependency of removed) {
-        core.info("Sending request for direct dependency (removed/solved)..");
-        core.info(`${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}`);
-        const directSummary = await getComponentSummary(directDependency.identifier);
-        commentBody += `## Direct Dependency Removed: ${directDependency.identifier.getName()} ${directDependency.identifier.getVersion()}
+      commentBody += "## \u2705 Nexus IQ Found Determined Violations Solved in this PR\n\n";
+      for (const dep of removed) {
+        const title = `Direct Removed: \`${nameOf(dep)} ${versionOf(dep)}\``;
+        commentBody += startDetails(title);
+        const directSummary = await getComponentSummary(dep.identifier);
+        commentBody += renderAlertsTable(directSummary, { max: MAX_ROWS_DIRECT });
+        if (dep.children?.length) {
+          for (const child of dep.children) {
+            const childSummary = await getComponentSummary(child.identifier);
+            if (!childSummary?.alerts?.length)
+              continue;
+            commentBody += `
+
+**Transitive Removed: \`${nameOf(child)} ${versionOf(child)}\`**
+
 `;
-        commentBody += renderAlertsTable(directSummary);
-        if (directDependency.children?.length) {
-          core.info("Sending request for transitive dependencies (removed/solved)..");
-          for (const child of directDependency.children) {
-            core.info(`	${child.identifier.getName()} ${child.identifier.getVersion()}`);
-            const transitiveSummary = await getComponentSummary(child.identifier);
-            commentBody += `### Transitive Dependency Removed: ${child.identifier.getName()} ${child.identifier.getVersion()}
-`;
-            commentBody += renderAlertsTable(transitiveSummary);
+            commentBody += renderAlertsTable(childSummary, { max: MAX_ROWS_TRANSITIVE });
           }
         }
+        commentBody += endDetails();
       }
     }
     await postComment(commentBody);
   } catch (error) {
-    core.setFailed(`\u274C Failed to read dependency-tree.txt: ${error.message}`);
+    core.setFailed(`\u274C Failed: ${error.message}`);
   }
 }
 function parseDependencyTreeOutput(dependencyTreeOutput) {
@@ -38356,41 +38454,29 @@ function parseDependencyTreeOutput(dependencyTreeOutput) {
   }
   const diagraphLineSplitter = /"([^"]+)" -> "([^"]+)"/;
   for (const module2 of allModules) {
-    if (module2.length === 0) {
+    if (module2.length === 0)
       continue;
-    }
     const parsedDependencies = /* @__PURE__ */ new Map();
     for (const diagraphLine of module2) {
-      let mavenCoordinates;
       const matches = diagraphLineSplitter.exec(diagraphLine);
+      if (!matches)
+        continue;
       const left = matches[1];
       const right = matches[2];
-      let leftDependency;
-      if (parsedDependencies.get(left) !== void 0) {
-        leftDependency = parsedDependencies.get(left);
-      } else {
-        mavenCoordinates = left.split(":");
+      let leftDependency = parsedDependencies.get(left);
+      if (!leftDependency) {
+        const mavenCoordinates = left.split(":");
         leftDependency = createDependencyFromMavenCoordinates(mavenCoordinates);
         parsedDependencies.set(left, leftDependency);
-        if ("test" === leftDependency.scope) {
-          dependencies.push(leftDependency);
-        } else {
-          dependencies.push(leftDependency);
-        }
+        dependencies.push(leftDependency);
       }
-      let rightDependency;
-      if (parsedDependencies.get(right) !== void 0) {
-        rightDependency = parsedDependencies.get(right);
-      } else {
-        mavenCoordinates = right.split(":");
+      let rightDependency = parsedDependencies.get(right);
+      if (!rightDependency) {
+        const mavenCoordinates = right.split(":");
         rightDependency = createDependencyFromMavenCoordinates(mavenCoordinates);
         parsedDependencies.set(right, rightDependency);
       }
-      if ("test" === rightDependency.scope) {
-        leftDependency.children.push(rightDependency);
-      } else {
-        leftDependency.children.push(rightDependency);
-      }
+      leftDependency.children.push(rightDependency);
     }
   }
   dependencies = dependencies.filter((value) => value.identifier.coordinates.get("extension") !== "pom");
@@ -38421,7 +38507,6 @@ function createDependencyFromMavenCoordinates(mavenCoordinates) {
       mavenCoordinates[1],
       mavenCoordinates[2],
       "",
-      // classifier is optional and can be missing
       mavenCoordinates[3]
     );
   } else if (mavenCoordinates.length === 5) {
@@ -38430,7 +38515,6 @@ function createDependencyFromMavenCoordinates(mavenCoordinates) {
       mavenCoordinates[1],
       mavenCoordinates[2],
       "",
-      // classifier is optional and can be missing
       mavenCoordinates[3]
     );
     scope = mavenCoordinates[4];
@@ -38476,10 +38560,8 @@ async function getComponentSummary(componentIdentifier) {
     throw error;
   }
 }
-async function getAxiosConfig(url2, username = void 0, password = void 0, timeout = 1e3) {
-  const config = {
-    timeout
-  };
+async function getAxiosConfig(_url, username = void 0, password = void 0, timeout = 1e3) {
+  const config = { timeout };
   if (username && password) {
     config.auth = { username, password };
   }
@@ -38519,19 +38601,10 @@ ${commentBody}`;
       return;
     }
     if (previous && mode === "replace") {
-      await octokit.rest.issues.deleteComment({
-        owner,
-        repo,
-        comment_id: previous.id
-      });
+      await octokit.rest.issues.deleteComment({ owner, repo, comment_id: previous.id });
       core.info(`\u{1F5D1}\uFE0F Deleted previous comment (${previous.id})`);
     }
-    await octokit.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: pullRequestNumber,
-      body
-    });
+    await octokit.rest.issues.createComment({ owner, repo, issue_number: pullRequestNumber, body });
     core.info("\u2705 Created comment on PR");
   } catch (error) {
     core.setFailed(error.message);
