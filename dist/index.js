@@ -38286,7 +38286,7 @@ function renderAlertsTable(summary) {
         for (const k of cf.constraintFacts) {
           let reasons = "";
           for (const cond of k.conditionFacts) {
-            reasons += `${cond.reason} 
+            reasons += `- ${cond.reason} 
 `;
           }
           reasons = reasons.slice(-3);
