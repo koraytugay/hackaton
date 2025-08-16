@@ -72,7 +72,6 @@ class ConditionFact {
   }
 }
 
-// ===== Formatting / Diff Helpers =====
 const keyOf = (d: Dependency) => `${d.identifier.getName()}@${d.identifier.getVersion()}`;
 const nameOf = (d: Dependency) => d.identifier.getName();
 const versionOf = (d: Dependency) => d.identifier.getVersion();
@@ -80,7 +79,6 @@ const versionOf = (d: Dependency) => d.identifier.getVersion();
 const MAX_ROWS_DIRECT = 12;
 const MAX_ROWS_TRANSITIVE = 8;
 
-// NEW: severity mapping + badge renderer (replace your old `threatBadge`)
 type SevInfo = { label: 'Critical' | 'Severe' | 'Moderate' | 'Low' | 'None' | 'Unspecified'; color: string };
 
 function severityInfo(n: number): SevInfo {
@@ -221,19 +219,14 @@ async function run(): Promise<void> {
     const upgradeCount = upgrades.length;
 
     let commentBody = `# Nexus IQ Report for this PR\n\n`;
-    commentBody += `> **Summary**\n`;
-    commentBody += `> • Introduced: ${introducedCount} direct\n`;
-    commentBody += `> • Solved: ${removedCount} direct\n`;
-    commentBody += `> • Upgrades: ${upgradeCount}\n\n`;
-
-    // Legend (collapsible)
-    commentBody += startDetails('Legend');
-    commentBody += '- 🟥 High (≥ 9)\n- 🟧 Elevated (7–8)\n- 🟨 Moderate (4–6)\n- 🟩 Low (≤ 3)\n';
-    commentBody += endDetails();
+    commentBody += `**Summary**\n`;
+    commentBody += `• Introduced: ${introducedCount} direct\n`;
+    commentBody += `• Solved: ${removedCount} direct\n`;
+    commentBody += `• Upgrades: ${upgradeCount}\n\n`;
 
     // Upgrades
     if (upgrades.length) {
-      commentBody += '## 🔄 Upgrades\n\n';
+      commentBody += '**Upgrades** \n\n';
       for (const u of upgrades) {
         const name = u.name;
         const before = versionOf(u.from);

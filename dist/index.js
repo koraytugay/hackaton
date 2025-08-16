@@ -38343,20 +38343,17 @@ async function run() {
     let commentBody = `# Nexus IQ Report for this PR
 
 `;
-    commentBody += `> **Summary**
+    commentBody += `**Summary**
 `;
-    commentBody += `> \u2022 Introduced: ${introducedCount} direct
+    commentBody += `\u2022 Introduced: ${introducedCount} direct
 `;
-    commentBody += `> \u2022 Solved: ${removedCount} direct
+    commentBody += `\u2022 Solved: ${removedCount} direct
 `;
-    commentBody += `> \u2022 Upgrades: ${upgradeCount}
+    commentBody += `\u2022 Upgrades: ${upgradeCount}
 
 `;
-    commentBody += startDetails("Legend");
-    commentBody += "- \u{1F7E5} High (\u2265 9)\n- \u{1F7E7} Elevated (7\u20138)\n- \u{1F7E8} Moderate (4\u20136)\n- \u{1F7E9} Low (\u2264 3)\n";
-    commentBody += endDetails();
     if (upgrades.length) {
-      commentBody += "## \u{1F504} Upgrades\n\n";
+      commentBody += "**Upgrades** \n\n";
       for (const u of upgrades) {
         const name = u.name;
         const before = versionOf(u.from);
