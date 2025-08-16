@@ -38348,7 +38348,7 @@ async function run() {
     if (introduced.length) {
       commentBody += "## New Components\n\n";
       for (const dep of introduced) {
-        const title = `Direct: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
+        const title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
         const directSummary = await getComponentSummary(dep.identifier);
         commentBody += renderAlertsTable(directSummary);
@@ -38396,7 +38396,7 @@ async function run() {
     if (removed.length) {
       commentBody += "## Removed Components\n\n";
       for (const dep of removed) {
-        const title = `Direct Removed: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
+        const title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
         const directSummary = await getComponentSummary(dep.identifier);
         commentBody += renderAlertsTable(directSummary);
