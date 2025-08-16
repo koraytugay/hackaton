@@ -5,6 +5,8 @@ import axios, {AxiosError, AxiosRequestConfig} from 'axios';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 
+const COMMENT_MARKER = '<!-- nx-iq-report:do-not-edit -->';
+
 export interface Dependency {
   identifier: ComponentIdentifier;
   scope: string;
@@ -410,7 +412,9 @@ if (username && password) {
 return config;
 }
 
-async function postComment(commentBody: string) {
+async function postComment(commentBody: string, opts: { mode?: 'update' | 'replace' } = {}) {
+  const { mode = 'update' } = opts;
+
   try {
     const token = process.env.GITHUB_TOKEN;
     if (!token) throw new Error('GITHUB_TOKEN is not defined');
@@ -425,20 +429,53 @@ async function postComment(commentBody: string) {
       return;
     }
 
-    const owner = context.repo.owner;
-    const repo = context.repo.repo;
+    const { owner, repo } = context.repo;
 
-    // const commentBody = `👋 Hello from your custom action! I just analyzed your PR and here’s something cool: 🎉`;
+    // Always include the hidden marker so we can find our own comment reliably
+    const body = `${COMMENT_MARKER}\n${commentBody}`;
+
+    // Fetch existing comments (paginate in case there are many)
+    const comments = await octokit.paginate(octokit.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number: pullRequestNumber,
+      per_page: 100,
+    });
+
+    // Find the previous run's comment by marker (and optionally ensure it's from a bot)
+    const previous = comments.find(
+        (c) =>
+            (c.body ?? '').includes(COMMENT_MARKER) &&
+            (c.user?.type === 'Bot' || c.user?.login === 'github-actions[bot]')
+    );
+
+    if (previous && mode === 'update') {
+      await octokit.rest.issues.updateComment({
+        owner,
+        repo,
+        comment_id: previous.id,
+        body,
+      });
+      core.info(`✅ Updated existing comment (${previous.id})`);
+      return;
+    }
+
+    if (previous && mode === 'replace') {
+      await octokit.rest.issues.deleteComment({
+        owner,
+        repo,
+        comment_id: previous.id,
+      });
+      core.info(`🗑️ Deleted previous comment (${previous.id})`);
+    }
 
     await octokit.rest.issues.createComment({
       owner,
       repo,
       issue_number: pullRequestNumber,
-      body: commentBody,
+      body,
     });
-
-    core.info('✅ Comment posted to PR');
-
+    core.info('✅ Created comment on PR');
   } catch (error) {
     core.setFailed((error as Error).message);
   }

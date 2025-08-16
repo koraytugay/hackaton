@@ -38212,6 +38212,7 @@ var {
 // src/index.ts
 var core = __toESM(require_core());
 var github = __toESM(require_github());
+var COMMENT_MARKER = "<!-- nx-iq-report:do-not-edit -->";
 async function run() {
   try {
     let filePath = path.resolve(process.cwd(), "source-dependency-tree.txt");
@@ -38469,7 +38470,8 @@ async function getAxiosConfig(url2, username = void 0, password = void 0, timeou
   }
   return config;
 }
-async function postComment(commentBody) {
+async function postComment(commentBody, opts = {}) {
+  const { mode = "update" } = opts;
   try {
     const token = process.env.GITHUB_TOKEN;
     if (!token)
@@ -38481,15 +38483,43 @@ async function postComment(commentBody) {
       core.info("Not a pull request \u2013 skipping comment.");
       return;
     }
-    const owner = context2.repo.owner;
-    const repo = context2.repo.repo;
+    const { owner, repo } = context2.repo;
+    const body = `${COMMENT_MARKER}
+${commentBody}`;
+    const comments = await octokit.paginate(octokit.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number: pullRequestNumber,
+      per_page: 100
+    });
+    const previous = comments.find(
+      (c) => (c.body ?? "").includes(COMMENT_MARKER) && (c.user?.type === "Bot" || c.user?.login === "github-actions[bot]")
+    );
+    if (previous && mode === "update") {
+      await octokit.rest.issues.updateComment({
+        owner,
+        repo,
+        comment_id: previous.id,
+        body
+      });
+      core.info(`\u2705 Updated existing comment (${previous.id})`);
+      return;
+    }
+    if (previous && mode === "replace") {
+      await octokit.rest.issues.deleteComment({
+        owner,
+        repo,
+        comment_id: previous.id
+      });
+      core.info(`\u{1F5D1}\uFE0F Deleted previous comment (${previous.id})`);
+    }
     await octokit.rest.issues.createComment({
       owner,
       repo,
       issue_number: pullRequestNumber,
-      body: commentBody
+      body
     });
-    core.info("\u2705 Comment posted to PR");
+    core.info("\u2705 Created comment on PR");
   } catch (error) {
     core.setFailed(error.message);
   }
