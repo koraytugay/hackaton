@@ -144,6 +144,11 @@ function renderAlertsTable(summary?: ComponentSummary) {
 
   const deduped = Array.from(new Set(rows));
 
+  // If processing produced no rows, also show the message
+  if (deduped.length === 0) {
+    return 'This component does not have any vulnerabilities.';
+  }
+
   let out = '';
   out += '|Severity|Policy|Constraint|Reason|\n';
   out += '|--|--|--|--|\n';
