@@ -38492,9 +38492,7 @@ ${commentBody}`;
       issue_number: pullRequestNumber,
       per_page: 100
     });
-    const previous = comments.find(
-      (c) => (c.body ?? "").includes(COMMENT_MARKER) && (c.user?.type === "Bot" || c.user?.login === "github-actions[bot]")
-    );
+    const previous = comments.find((c) => (c.body ?? "").includes(COMMENT_MARKER));
     if (previous && mode === "update") {
       await octokit.rest.issues.updateComment({
         owner,

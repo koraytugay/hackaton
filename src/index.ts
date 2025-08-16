@@ -434,7 +434,6 @@ async function postComment(commentBody: string, opts: { mode?: 'update' | 'repla
     // Always include the hidden marker so we can find our own comment reliably
     const body = `${COMMENT_MARKER}\n${commentBody}`;
 
-    // Fetch existing comments (paginate in case there are many)
     const comments = await octokit.paginate(octokit.rest.issues.listComments, {
       owner,
       repo,
@@ -442,12 +441,7 @@ async function postComment(commentBody: string, opts: { mode?: 'update' | 'repla
       per_page: 100,
     });
 
-    // Find the previous run's comment by marker (and optionally ensure it's from a bot)
-    const previous = comments.find(
-        (c) =>
-            (c.body ?? '').includes(COMMENT_MARKER) &&
-            (c.user?.type === 'Bot' || c.user?.login === 'github-actions[bot]')
-    );
+    const previous = comments.find((c) => (c.body ?? '').includes(COMMENT_MARKER));
 
     if (previous && mode === 'update') {
       await octokit.rest.issues.updateComment({
