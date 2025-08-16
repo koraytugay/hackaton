@@ -38367,9 +38367,9 @@ async function run() {
         const numberOfHighViolations = getNumberOfViolations(directSummary, 4, 7);
         const numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
         let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
-        title += `<img alt="${numberOfCriticalViolations}" src="https://img.shields.io/badge/0-%20-bf001f?style=flat">`;
-        title += `<img alt="${numberOfHighViolations}" src="https://img.shields.io/badge/0-%20-fc6d07?style=flat">`;
-        title += `<img alt="${numberOfMediumViolations}" src="https://img.shields.io/badge/0-%20-feb628?style=flat">`;
+        title += `&nbsp;<img alt="${numberOfCriticalViolations}" src="https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat">`;
+        title += `&nbsp;<img alt="${numberOfHighViolations}" src="https://img.shields.io/badge/${numberOfHighViolations}-%20-fc6d07?style=flat">`;
+        title += `&nbsp;<img alt="${numberOfMediumViolations}" src="https://img.shields.io/badge/${numberOfMediumViolations}-%20-feb628?style=flat">`;
         let numberOfTransitiveCritical = 0;
         let numberOfTransitiveHigh = 0;
         let numberOfTransitiveMedium = 0;
@@ -38386,9 +38386,9 @@ async function run() {
         }
         if (numberOfTransitiveCritical > 0 || numberOfTransitiveHigh > 0 || numberOfTransitiveMedium > 0) {
           title += " - ";
-          title += `<img alt="${numberOfTransitiveCritical}" src="https://img.shields.io/badge/0-%20-bf001f?style=flat">`;
-          title += `<img alt="${numberOfTransitiveHigh}" src="https://img.shields.io/badge/0-%20-fc6d07?style=flat">`;
-          title += `<img alt="${numberOfTransitiveMedium}" src="https://img.shields.io/badge/0-%20-feb628?style=flat">`;
+          title += `&nbsp;<img alt="${numberOfTransitiveCritical}" src="https://img.shields.io/badge/${numberOfTransitiveCritical}-%20-bf001f?style=flat">`;
+          title += `&nbsp;<img alt="${numberOfTransitiveHigh}" src="https://img.shields.io/badge/${numberOfTransitiveHigh}-%20-fc6d07?style=flat">`;
+          title += `&nbsp;<img alt="${numberOfTransitiveMedium}" src="https://img.shields.io/badge/${numberOfTransitiveMedium}-%20-feb628?style=flat">`;
         }
         commentBody += startDetails(title);
         commentBody += renderAlertsTable(directSummary);
