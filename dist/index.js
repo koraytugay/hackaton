@@ -38217,20 +38217,18 @@ var keyOf = (d) => `${d.identifier.getName()}@${d.identifier.getVersion()}`;
 var nameOf = (d) => d.identifier.getName();
 var versionOf = (d) => d.identifier.getVersion();
 var MAX_ROWS_DIRECT = 12;
-var MAX_ROWS_TRANSITIVE = 8;
+var MAX_ROWS_TRANSITIVE = 12;
 function severityInfo(n) {
-  if (Number.isFinite(n)) {
-    if (n >= 8)
-      return { label: "Critical", color: "bf001f" };
-    if (n >= 4)
-      return { label: "Severe", color: "fc6d07" };
-    if (n >= 2)
-      return { label: "Moderate", color: "feb628" };
-    if (n > 1)
-      return { label: "Low", color: "3942a8" };
-    if (n === 0)
-      return { label: "None", color: "15a2ff" };
-  }
+  if (n >= 8)
+    return { label: "Critical", color: "bf001f" };
+  if (n >= 4)
+    return { label: "Severe", color: "fc6d07" };
+  if (n >= 2)
+    return { label: "Moderate", color: "feb628" };
+  if (n > 1)
+    return { label: "Low", color: "3942a8" };
+  if (n === 0)
+    return { label: "None", color: "15a2ff" };
   return { label: "Unspecified", color: "000000" };
 }
 function severityBadge(n) {

@@ -77,19 +77,17 @@ const nameOf = (d: Dependency) => d.identifier.getName();
 const versionOf = (d: Dependency) => d.identifier.getVersion();
 
 const MAX_ROWS_DIRECT = 12;
-const MAX_ROWS_TRANSITIVE = 8;
+const MAX_ROWS_TRANSITIVE = 12;
 
 type SevInfo = { label: 'Critical' | 'Severe' | 'Moderate' | 'Low' | 'None' | 'Unspecified'; color: string };
 
 function severityInfo(n: number): SevInfo {
-  if (Number.isFinite(n)) {
-    if (n >= 8) return { label: 'Critical',  color: 'bf001f' }; // severity.critical
-    if (n >= 4) return { label: 'Severe',    color: 'fc6d07' }; // severity.severe
-    if (n >= 2) return { label: 'Moderate',  color: 'feb628' }; // severity.moderate
-    if (n >  1) return { label: 'Low',       color: '3942a8' }; // severity.low
-    if (n === 0) return { label: 'None',     color: '15a2ff' }; // severity.none
-  }
-  return { label: 'Unspecified', color: '000000' };              // severity.unspecified
+  if (n >= 8) return { label: 'Critical',  color: 'bf001f' }; // severity.critical
+  if (n >= 4) return { label: 'Severe',    color: 'fc6d07' }; // severity.severe
+  if (n >= 2) return { label: 'Moderate',  color: 'feb628' }; // severity.moderate
+  if (n >  1) return { label: 'Low',       color: '3942a8' }; // severity.low
+  if (n === 0) return { label: 'None',     color: '15a2ff' }; // severity.none
+  return { label: 'Unspecified', color: '000000' };           // severity.unspecified
 }
 
 function severityBadge(n: number): string {
