@@ -38223,7 +38223,7 @@ function severityInfo(n) {
     return { label: `${n}`, color: "fc6d07" };
   if (n >= 2)
     return { label: `${n}`, color: "feb628" };
-  if (n > 1)
+  if (n >= 1)
     return { label: `${n}`, color: "3942a8" };
   if (n === 0)
     return { label: `${n}`, color: "15a2ff" };

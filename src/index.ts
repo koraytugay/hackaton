@@ -81,7 +81,7 @@ function severityInfo(n: number): SevInfo {
   if (n >= 8) return { label: `${n}`,  color: 'bf001f' }; // severity.critical
   if (n >= 4) return { label: `${n}`,    color: 'fc6d07' }; // severity.severe
   if (n >= 2) return { label: `${n}`,  color: 'feb628' }; // severity.moderate
-  if (n >  1) return { label: `${n}`,       color: '3942a8' }; // severity.low
+  if (n >=  1) return { label: `${n}`,       color: '3942a8' }; // severity.low
   if (n === 0) return { label: `${n}`,     color: '15a2ff' }; // severity.none
   return { label: 'Unspecified', color: '000000' };           // severity.unspecified
 }
