@@ -122,7 +122,7 @@ function endDetails() {
   return '\n</details>\n';
 }
 
-function getNumberOfViolations(summary: ComponentSummary | undefined, threshold: number) {
+function getNumberOfViolations(summary: ComponentSummary | undefined, lower: number, upper: number) {
   if (!summary) {
     return 0;
   }
@@ -130,8 +130,10 @@ function getNumberOfViolations(summary: ComponentSummary | undefined, threshold:
   let count = 0;
 
   for (const alert of summary.alerts) {
-    if (alert.trigger && alert.trigger.threatLevel && alert.trigger.threatLevel >= threshold) {
-      count++;
+    if (alert.trigger && alert.trigger.threatLevel) {
+      if (alert.trigger.threatLevel >= lower && alert.trigger.threatLevel <= upper) {
+        count++;
+      }
     }
   }
 
@@ -250,14 +252,14 @@ async function run(): Promise<void> {
       for (const dep of introduced) {
         const directSummary = await getComponentSummary(dep.identifier);
 
-        const numberOfCriticalViolations = getNumberOfViolations(directSummary, 8);
-        const numberOfHighViolations = getNumberOfViolations(directSummary, 4);
-        const numberOfMediumViolations = getNumberOfViolations(directSummary, 2);
+        const numberOfCriticalViolations = getNumberOfViolations(directSummary, 8, 10);
+        const numberOfHighViolations = getNumberOfViolations(directSummary, 4, 7);
+        const numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
 
         let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
-        title += `![${numberOfCriticalViolations}](https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat)`
-        title += `![${numberOfHighViolations}](https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat)`
-        title += `![${numberOfMediumViolations}](https://img.shields.io/badge/${numberOfMediumViolations}-%20-bf001f?style=flat)`
+        title += ` ![${numberOfCriticalViolations}](https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat)`
+        title += ` ![${numberOfHighViolations}](https://img.shields.io/badge/${numberOfCriticalViolations}-%20-fc6d07?style=flat)`
+        title += ` ![${numberOfMediumViolations}](https://img.shields.io/badge/${numberOfMediumViolations}-%20-feb628?style=flat)`
         commentBody += startDetails(title);
 
         commentBody += renderAlertsTable(directSummary);
