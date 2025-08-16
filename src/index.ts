@@ -76,14 +76,14 @@ const keyOf = (d: Dependency) => `${d.identifier.getName()}@${d.identifier.getVe
 const nameOf = (d: Dependency) => d.identifier.getName();
 const versionOf = (d: Dependency) => d.identifier.getVersion();
 
-type SevInfo = { label: 'Critical' | 'Severe' | 'Moderate' | 'Low' | 'None' | 'Unspecified'; color: string };
+type SevInfo = { label: string; color: string };
 
 function severityInfo(n: number): SevInfo {
-  if (n >= 8) return { label: 'Critical',  color: 'bf001f' }; // severity.critical
-  if (n >= 4) return { label: 'Severe',    color: 'fc6d07' }; // severity.severe
-  if (n >= 2) return { label: 'Moderate',  color: 'feb628' }; // severity.moderate
-  if (n >  1) return { label: 'Low',       color: '3942a8' }; // severity.low
-  if (n === 0) return { label: 'None',     color: '15a2ff' }; // severity.none
+  if (n >= 8) return { label: `'' + ${n}`,  color: 'bf001f' }; // severity.critical
+  if (n >= 4) return { label: `'' + ${n}`,    color: 'fc6d07' }; // severity.severe
+  if (n >= 2) return { label: `'' + ${n}`,  color: 'feb628' }; // severity.moderate
+  if (n >  1) return { label: `'' + ${n}`,       color: '3942a8' }; // severity.low
+  if (n === 0) return { label: `'' + ${n}`,     color: '15a2ff' }; // severity.none
   return { label: 'Unspecified', color: '000000' };           // severity.unspecified
 }
 
@@ -257,9 +257,31 @@ async function run(): Promise<void> {
         const numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
 
         let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
-        title += ` ![${numberOfCriticalViolations}](https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat)`
-        title += ` ![${numberOfHighViolations}](https://img.shields.io/badge/${numberOfCriticalViolations}-%20-fc6d07?style=flat)`
-        title += ` ![${numberOfMediumViolations}](https://img.shields.io/badge/${numberOfMediumViolations}-%20-feb628?style=flat)`
+        title += `<img alt="${numberOfCriticalViolations}" src="https://img.shields.io/badge/0-%20-bf001f?style=flat">`
+        title += `<img alt="${numberOfHighViolations}" src="https://img.shields.io/badge/0-%20-fc6d07?style=flat">`
+        title += `<img alt="${numberOfMediumViolations}" src="https://img.shields.io/badge/0-%20-feb628?style=flat">`
+
+        let numberOfTransitiveCritical = 0;
+        let numberOfTransitiveHigh = 0;
+        let numberOfTransitiveMedium = 0;
+
+        if (dep.children?.length) {
+          for (const child of dep.children) {
+            const childSummary = await getComponentSummary(child.identifier);
+            if (!childSummary?.alerts?.length) continue; // skip quiet transitives
+            numberOfTransitiveCritical = getNumberOfViolations(childSummary, 8, 10);
+            numberOfTransitiveHigh = getNumberOfViolations(childSummary, 4, 7);
+            numberOfTransitiveMedium = getNumberOfViolations(childSummary, 2, 3);
+          }
+        }
+
+        if (numberOfTransitiveCritical > 0 || numberOfTransitiveHigh > 0 || numberOfTransitiveMedium > 0) {
+          title += ' - '
+          title += `<img alt="${numberOfTransitiveCritical}" src="https://img.shields.io/badge/0-%20-bf001f?style=flat">`
+          title += `<img alt="${numberOfTransitiveHigh}" src="https://img.shields.io/badge/0-%20-fc6d07?style=flat">`
+          title += `<img alt="${numberOfTransitiveMedium}" src="https://img.shields.io/badge/0-%20-feb628?style=flat">`
+        }
+
         commentBody += startDetails(title);
 
         commentBody += renderAlertsTable(directSummary);
