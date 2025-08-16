@@ -38216,8 +38216,6 @@ var COMMENT_MARKER = "<!-- nx-iq-report:do-not-edit -->";
 var keyOf = (d) => `${d.identifier.getName()}@${d.identifier.getVersion()}`;
 var nameOf = (d) => d.identifier.getName();
 var versionOf = (d) => d.identifier.getVersion();
-var MAX_ROWS_DIRECT = 12;
-var MAX_ROWS_TRANSITIVE = 12;
 function severityInfo(n) {
   if (n >= 8)
     return { label: "Critical", color: "bf001f" };
@@ -38262,8 +38260,7 @@ function startDetails(summary) {
 function endDetails() {
   return "\n</details>\n";
 }
-function renderAlertsTable(summary, opts = {}) {
-  const { max } = opts;
+function renderAlertsTable(summary) {
   const rows = [];
   if (summary?.alerts) {
     summary.alerts = [...summary.alerts].sort(
@@ -38281,16 +38278,10 @@ function renderAlertsTable(summary, opts = {}) {
     }
   }
   const deduped = Array.from(new Set(rows));
-  const limited = typeof max === "number" ? deduped.slice(0, max) : deduped;
   let out = "";
   out += "|Severity|Policy|Constraint|Reason|\n";
   out += "|--|--|--|--|\n";
-  out += limited.join("\n");
-  if (typeof max === "number" && deduped.length > max) {
-    out += `
-|\u2026|\u2026|\u2026|\u2026 and ${deduped.length - max} more|
-`;
-  }
+  out += deduped.join("\n");
   return out;
 }
 async function run() {
@@ -38363,14 +38354,14 @@ async function run() {
         commentBody += `**Before \`${before}\`**
 
 `;
-        commentBody += renderAlertsTable(beforeSummary, { max: MAX_ROWS_DIRECT });
+        commentBody += renderAlertsTable(beforeSummary);
         const afterSummary = await getComponentSummary(u.to.identifier);
         commentBody += `
 
 **After \`${after}\`**
 
 `;
-        commentBody += renderAlertsTable(afterSummary, { max: MAX_ROWS_DIRECT });
+        commentBody += renderAlertsTable(afterSummary);
         commentBody += endDetails();
       }
       commentBody += "\n";
@@ -38381,7 +38372,7 @@ async function run() {
         const title = `Direct: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
         const directSummary = await getComponentSummary(dep.identifier);
-        commentBody += renderAlertsTable(directSummary, { max: MAX_ROWS_DIRECT });
+        commentBody += renderAlertsTable(directSummary);
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
@@ -38392,7 +38383,7 @@ async function run() {
 **Transitive: \`${nameOf(child)} ${versionOf(child)}\`**
 
 `;
-            commentBody += renderAlertsTable(childSummary, { max: MAX_ROWS_TRANSITIVE });
+            commentBody += renderAlertsTable(childSummary);
           }
         }
         commentBody += endDetails();
@@ -38405,7 +38396,7 @@ async function run() {
         const title = `Direct Removed: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
         const directSummary = await getComponentSummary(dep.identifier);
-        commentBody += renderAlertsTable(directSummary, { max: MAX_ROWS_DIRECT });
+        commentBody += renderAlertsTable(directSummary);
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
@@ -38416,7 +38407,7 @@ async function run() {
 **Transitive Removed: \`${nameOf(child)} ${versionOf(child)}\`**
 
 `;
-            commentBody += renderAlertsTable(childSummary, { max: MAX_ROWS_TRANSITIVE });
+            commentBody += renderAlertsTable(childSummary);
           }
         }
         commentBody += endDetails();

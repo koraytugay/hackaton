@@ -76,9 +76,6 @@ const keyOf = (d: Dependency) => `${d.identifier.getName()}@${d.identifier.getVe
 const nameOf = (d: Dependency) => d.identifier.getName();
 const versionOf = (d: Dependency) => d.identifier.getVersion();
 
-const MAX_ROWS_DIRECT = 12;
-const MAX_ROWS_TRANSITIVE = 12;
-
 type SevInfo = { label: 'Critical' | 'Severe' | 'Moderate' | 'Low' | 'None' | 'Unspecified'; color: string };
 
 function severityInfo(n: number): SevInfo {
@@ -125,8 +122,7 @@ function endDetails() {
   return '\n</details>\n';
 }
 
-function renderAlertsTable(summary?: ComponentSummary, opts: { max?: number } = {}) {
-  const { max } = opts;
+function renderAlertsTable(summary?: ComponentSummary) {
   const rows: string[] = [];
 
   if (summary?.alerts) {
@@ -147,15 +143,11 @@ function renderAlertsTable(summary?: ComponentSummary, opts: { max?: number } = 
   }
 
   const deduped = Array.from(new Set(rows));
-  const limited = typeof max === 'number' ? deduped.slice(0, max) : deduped;
 
   let out = '';
   out += '|Severity|Policy|Constraint|Reason|\n';
   out += '|--|--|--|--|\n';
-  out += limited.join('\n');
-  if (typeof max === 'number' && deduped.length > max) {
-    out += `\n|…|…|…|… and ${deduped.length - max} more|\n`;
-  }
+  out += deduped.join('\n');
   return out;
 }
 
@@ -245,12 +237,12 @@ async function run(): Promise<void> {
         // Before
         const beforeSummary = await getComponentSummary(u.from.identifier);
         commentBody += `**Before \`${before}\`**\n\n`;
-        commentBody += renderAlertsTable(beforeSummary, { max: MAX_ROWS_DIRECT });
+        commentBody += renderAlertsTable(beforeSummary);
 
         // After
         const afterSummary = await getComponentSummary(u.to.identifier);
         commentBody += `\n\n**After \`${after}\`**\n\n`;
-        commentBody += renderAlertsTable(afterSummary, { max: MAX_ROWS_DIRECT });
+        commentBody += renderAlertsTable(afterSummary);
 
         commentBody += endDetails();
       }
@@ -265,14 +257,14 @@ async function run(): Promise<void> {
         commentBody += startDetails(title);
 
         const directSummary = await getComponentSummary(dep.identifier);
-        commentBody += renderAlertsTable(directSummary, { max: MAX_ROWS_DIRECT });
+        commentBody += renderAlertsTable(directSummary);
 
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
             if (!childSummary?.alerts?.length) continue; // skip quiet transitives
             commentBody += `\n\n**Transitive: \`${nameOf(child)} ${versionOf(child)}\`**\n\n`;
-            commentBody += renderAlertsTable(childSummary, { max: MAX_ROWS_TRANSITIVE });
+            commentBody += renderAlertsTable(childSummary);
           }
         }
 
@@ -289,14 +281,14 @@ async function run(): Promise<void> {
         commentBody += startDetails(title);
 
         const directSummary = await getComponentSummary(dep.identifier);
-        commentBody += renderAlertsTable(directSummary, { max: MAX_ROWS_DIRECT });
+        commentBody += renderAlertsTable(directSummary);
 
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
             if (!childSummary?.alerts?.length) continue;
             commentBody += `\n\n**Transitive Removed: \`${nameOf(child)} ${versionOf(child)}\`**\n\n`;
-            commentBody += renderAlertsTable(childSummary, { max: MAX_ROWS_TRANSITIVE });
+            commentBody += renderAlertsTable(childSummary);
           }
         }
 
