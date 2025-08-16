@@ -217,20 +217,20 @@ async function run(): Promise<void> {
     const upgradeCount = upgrades.length;
 
     let commentBody = `# Nexus IQ Report for this PR\n\n`;
-    commentBody += `**Summary**\n`;
+    commentBody += `## Summary`;
     commentBody += `• Introduced: ${introducedCount} direct\n`;
     commentBody += `• Removed: ${removedCount} direct\n`;
     commentBody += `• Upgrades: ${upgradeCount}\n\n`;
 
     // Upgrades
     if (upgrades.length) {
-      commentBody += '**Upgrades** \n\n';
+      commentBody += '## Upgrades';
       for (const u of upgrades) {
         const name = u.name;
         const before = versionOf(u.from);
         const after = versionOf(u.to);
 
-        commentBody += startDetails(`**${name}**: ${before} → ${after}`);
+        commentBody += startDetails(`<strong>${name}</strong>>: ${before} → ${after}`);
 
         // Before
         const beforeSummary = await getComponentSummary(u.from.identifier);
@@ -251,7 +251,7 @@ async function run(): Promise<void> {
     if (introduced.length) {
       commentBody += '## ➕ Nexus IQ Found Policy Violations Introduced in this PR\n\n';
       for (const dep of introduced) {
-        const title = `Direct: \`${nameOf(dep)} ${versionOf(dep)}\``;
+        const title = `Direct: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
 
         const directSummary = await getComponentSummary(dep.identifier);
@@ -275,7 +275,7 @@ async function run(): Promise<void> {
     if (removed.length) {
       commentBody += '## ✅ Nexus IQ Found Determined Violations Solved in this PR\n\n';
       for (const dep of removed) {
-        const title = `Direct Removed: \`${nameOf(dep)} ${versionOf(dep)}\``;
+        const title = `Direct Removed: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
 
         const directSummary = await getComponentSummary(dep.identifier);

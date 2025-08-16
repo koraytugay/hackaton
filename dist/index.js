@@ -38341,8 +38341,7 @@ async function run() {
     let commentBody = `# Nexus IQ Report for this PR
 
 `;
-    commentBody += `**Summary**
-`;
+    commentBody += `## Summary`;
     commentBody += `\u2022 Introduced: ${introducedCount} direct
 `;
     commentBody += `\u2022 Removed: ${removedCount} direct
@@ -38351,12 +38350,12 @@ async function run() {
 
 `;
     if (upgrades.length) {
-      commentBody += "**Upgrades** \n\n";
+      commentBody += "## Upgrades";
       for (const u of upgrades) {
         const name = u.name;
         const before = versionOf(u.from);
         const after = versionOf(u.to);
-        commentBody += startDetails(`**${name}**: ${before} \u2192 ${after}`);
+        commentBody += startDetails(`<strong>${name}</strong>>: ${before} \u2192 ${after}`);
         const beforeSummary = await getComponentSummary(u.from.identifier);
         commentBody += `**Before \`${before}\`**
 
@@ -38376,7 +38375,7 @@ async function run() {
     if (introduced.length) {
       commentBody += "## \u2795 Nexus IQ Found Policy Violations Introduced in this PR\n\n";
       for (const dep of introduced) {
-        const title = `Direct: \`${nameOf(dep)} ${versionOf(dep)}\``;
+        const title = `Direct: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
         const directSummary = await getComponentSummary(dep.identifier);
         commentBody += renderAlertsTable(directSummary, { max: MAX_ROWS_DIRECT });
@@ -38400,7 +38399,7 @@ async function run() {
     if (removed.length) {
       commentBody += "## \u2705 Nexus IQ Found Determined Violations Solved in this PR\n\n";
       for (const dep of removed) {
-        const title = `Direct Removed: \`${nameOf(dep)} ${versionOf(dep)}\``;
+        const title = `Direct Removed: <strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         commentBody += startDetails(title);
         const directSummary = await getComponentSummary(dep.identifier);
         commentBody += renderAlertsTable(directSummary, { max: MAX_ROWS_DIRECT });
