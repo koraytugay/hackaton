@@ -38260,6 +38260,18 @@ function startDetails(summary) {
 function endDetails() {
   return "\n</details>\n";
 }
+function getNumberOfViolations(summary, threshold) {
+  if (!summary) {
+    return 0;
+  }
+  let count = 0;
+  for (const alert of summary.alerts) {
+    if (alert.trigger && alert.trigger.threatLevel && alert.trigger.threatLevel >= threshold) {
+      count++;
+    }
+  }
+  return count;
+}
 function renderAlertsTable(summary) {
   const rows = [];
   if (summary?.alerts) {
@@ -38348,9 +38360,15 @@ async function run() {
     if (introduced.length) {
       commentBody += "## New Components\n\n";
       for (const dep of introduced) {
-        const title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
-        commentBody += startDetails(title);
         const directSummary = await getComponentSummary(dep.identifier);
+        const numberOfCriticalViolations = getNumberOfViolations(directSummary, 8);
+        const numberOfHighViolations = getNumberOfViolations(directSummary, 4);
+        const numberOfMediumViolations = getNumberOfViolations(directSummary, 2);
+        let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
+        title += `![${numberOfCriticalViolations}](https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat)`;
+        title += `![${numberOfHighViolations}](https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat)`;
+        title += `![${numberOfMediumViolations}](https://img.shields.io/badge/${numberOfMediumViolations}-%20-bf001f?style=flat)`;
+        commentBody += startDetails(title);
         commentBody += renderAlertsTable(directSummary);
         if (dep.children?.length) {
           for (const child of dep.children) {
