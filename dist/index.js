@@ -38284,14 +38284,7 @@ function renderAlertsTable(summary) {
       const sev = severityBadge(alert.trigger.threatLevel);
       for (const cf of alert.trigger.componentFacts) {
         for (const k of cf.constraintFacts) {
-          let reasons = "";
-          for (const cond of k.conditionFacts) {
-            reasons += `- ${cond.reason}
-`;
-          }
-          if (reasons.endsWith("\n")) {
-            reasons = reasons.slice(0, -1);
-          }
+          const reasons = k.conditionFacts.map((cond) => `- ${cond.reason}`).join("<br>");
           rows.push(`|${sev}|${alert.trigger.policyName}|${k.constraintName}|${reasons}|`);
         }
       }
