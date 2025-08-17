@@ -250,9 +250,9 @@ async function run(): Promise<void> {
       for (const dep of introduced) {
         const directSummary = await getComponentSummary(dep.identifier);
 
-        const numberOfCriticalViolations = getNumberOfViolations(directSummary, 8, 10);
-        const numberOfHighViolations = getNumberOfViolations(directSummary, 4, 7);
-        const numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
+        let numberOfCriticalViolations = getNumberOfViolations(directSummary, 8, 10);
+        let numberOfHighViolations = getNumberOfViolations(directSummary, 4, 7);
+        let numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
 
         let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
         title += `&nbsp;<img alt="${numberOfCriticalViolations}" src="https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat">`
@@ -329,12 +329,46 @@ async function run(): Promise<void> {
     if (removed.length) {
       commentBody += '## Removed Components\n\n';
       for (const dep of removed) {
-        const title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
+        // Direct component summary & pills
+        const directSummary = await getComponentSummary(dep.identifier);
+
+        let numberOfCriticalViolations = getNumberOfViolations(directSummary, 8, 10);
+        let numberOfHighViolations = getNumberOfViolations(directSummary, 4, 7);
+        let numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
+
+        let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
+        title += `&nbsp;<img alt="${numberOfCriticalViolations}" src="https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat">`;
+        title += `&nbsp;<img alt="${numberOfHighViolations}" src="https://img.shields.io/badge/${numberOfHighViolations}-%20-fc6d07?style=flat">`;
+        title += `&nbsp;<img alt="${numberOfMediumViolations}" src="https://img.shields.io/badge/${numberOfMediumViolations}-%20-feb628?style=flat">`;
+
+        // Aggregate transitive pills (same logic as for New Components)
+        let numberOfTransitiveCritical = 0;
+        let numberOfTransitiveHigh = 0;
+        let numberOfTransitiveMedium = 0;
+
+        if (dep.children?.length) {
+          for (const child of dep.children) {
+            const childSummary = await getComponentSummary(child.identifier);
+            if (!childSummary?.alerts?.length) continue; // skip quiet transitives
+            numberOfTransitiveCritical += getNumberOfViolations(childSummary, 8, 10);
+            numberOfTransitiveHigh += getNumberOfViolations(childSummary, 4, 7);
+            numberOfTransitiveMedium += getNumberOfViolations(childSummary, 2, 3);
+          }
+        }
+
+        if (numberOfTransitiveCritical > 0 || numberOfTransitiveHigh > 0 || numberOfTransitiveMedium > 0) {
+          title += ' - ';
+          title += `&nbsp;<img alt="${numberOfTransitiveCritical}" src="https://img.shields.io/badge/${numberOfTransitiveCritical}-%20-bf001f?style=flat">`;
+          title += `&nbsp;<img alt="${numberOfTransitiveHigh}" src="https://img.shields.io/badge/${numberOfTransitiveHigh}-%20-fc6d07?style=flat">`;
+          title += `&nbsp;<img alt="${numberOfTransitiveMedium}" src="https://img.shields.io/badge/${numberOfTransitiveMedium}-%20-feb628?style=flat">`;
+        }
+
         commentBody += startDetails(title);
 
-        const directSummary = await getComponentSummary(dep.identifier);
+        // Direct table
         commentBody += renderAlertsTable(directSummary);
 
+        // Per-transitive details (unchanged, still shown if any alerts)
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
