@@ -38354,9 +38354,9 @@ async function run() {
     commentBody += "\n";
     commentBody += `\u2022 Introduced ${introducedCount} new dependencies`;
     commentBody += "\n";
-    commentBody += `\u2022 Removed: ${removedCount} dependencies`;
-    commentBody += "\n";
     commentBody += `\u2022 Version changed: ${upgradeCount} dependencies`;
+    commentBody += "\n";
+    commentBody += `\u2022 Removed: ${removedCount} dependencies`;
     commentBody += "\n";
     if (introduced.length) {
       commentBody += "## New Components\n\n";

@@ -239,9 +239,9 @@ async function run(): Promise<void> {
     commentBody += '\n';
     commentBody += `• Introduced ${introducedCount} new dependencies`;
     commentBody += '\n';
-    commentBody += `• Removed: ${removedCount} dependencies`;
-    commentBody += '\n';
     commentBody += `• Version changed: ${upgradeCount} dependencies`;
+    commentBody += '\n';
+    commentBody += `• Removed: ${removedCount} dependencies`;
     commentBody += '\n';
 
     // Introduced
