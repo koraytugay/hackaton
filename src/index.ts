@@ -308,15 +308,71 @@ async function run(): Promise<void> {
         const before = versionOf(u.from);
         const after = versionOf(u.to);
 
-        commentBody += startDetails(`<strong>${name}</strong>>: ${before} → ${after}`);
-
-        // Before
+        // ===== BEFORE pills (direct + transitive aggregate) =====
         const beforeSummary = await getComponentSummary(u.from.identifier);
+        const beforeCrit = getNumberOfViolations(beforeSummary, 8, 10);
+        const beforeHigh = getNumberOfViolations(beforeSummary, 4, 7);
+        const beforeMed  = getNumberOfViolations(beforeSummary, 2, 3);
+
+        let beforePills = '';
+        beforePills += `&nbsp;<img alt="${beforeCrit}" src="https://img.shields.io/badge/${beforeCrit}-%20-bf001f?style=flat">`;
+        beforePills += `&nbsp;<img alt="${beforeHigh}" src="https://img.shields.io/badge/${beforeHigh}-%20-fc6d07?style=flat">`;
+        beforePills += `&nbsp;<img alt="${beforeMed}"  src="https://img.shields.io/badge/${beforeMed}-%20-feb628?style=flat">`;
+
+        let beforeTransCrit = 0, beforeTransHigh = 0, beforeTransMed = 0;
+        if (u.from.children?.length) {
+          for (const child of u.from.children) {
+            const cs = await getComponentSummary(child.identifier);
+            if (!cs?.alerts?.length) continue;
+            beforeTransCrit += getNumberOfViolations(cs, 8, 10);
+            beforeTransHigh += getNumberOfViolations(cs, 4, 7);
+            beforeTransMed  += getNumberOfViolations(cs, 2, 3);
+          }
+        }
+        if (beforeTransCrit > 0 || beforeTransHigh > 0 || beforeTransMed > 0) {
+          beforePills += ' - ';
+          beforePills += `&nbsp;<img alt="${beforeTransCrit}" src="https://img.shields.io/badge/${beforeTransCrit}-%20-bf001f?style=flat">`;
+          beforePills += `&nbsp;<img alt="${beforeTransHigh}" src="https://img.shields.io/badge/${beforeTransHigh}-%20-fc6d07?style=flat">`;
+          beforePills += `&nbsp;<img alt="${beforeTransMed}"  src="https://img.shields.io/badge/${beforeTransMed}-%20-feb628?style=flat">`;
+        }
+
+        // ===== AFTER pills (direct + transitive aggregate) =====
+        const afterSummary = await getComponentSummary(u.to.identifier);
+        const afterCrit = getNumberOfViolations(afterSummary, 8, 10);
+        const afterHigh = getNumberOfViolations(afterSummary, 4, 7);
+        const afterMed  = getNumberOfViolations(afterSummary, 2, 3);
+
+        let afterPills = '';
+        afterPills += `&nbsp;<img alt="${afterCrit}" src="https://img.shields.io/badge/${afterCrit}-%20-bf001f?style=flat">`;
+        afterPills += `&nbsp;<img alt="${afterHigh}" src="https://img.shields.io/badge/${afterHigh}-%20-fc6d07?style=flat">`;
+        afterPills += `&nbsp;<img alt="${afterMed}"  src="https://img.shields.io/badge/${afterMed}-%20-feb628?style=flat">`;
+
+        let afterTransCrit = 0, afterTransHigh = 0, afterTransMed = 0;
+        if (u.to.children?.length) {
+          for (const child of u.to.children) {
+            const cs = await getComponentSummary(child.identifier);
+            if (!cs?.alerts?.length) continue;
+            afterTransCrit += getNumberOfViolations(cs, 8, 10);
+            afterTransHigh += getNumberOfViolations(cs, 4, 7);
+            afterTransMed  += getNumberOfViolations(cs, 2, 3);
+          }
+        }
+        if (afterTransCrit > 0 || afterTransHigh > 0 || afterTransMed > 0) {
+          afterPills += ' - ';
+          afterPills += `&nbsp;<img alt="${afterTransCrit}" src="https://img.shields.io/badge/${afterTransCrit}-%20-bf001f?style=flat">`;
+          afterPills += `&nbsp;<img alt="${afterTransHigh}" src="https://img.shields.io/badge/${afterTransHigh}-%20-fc6d07?style=flat">`;
+          afterPills += `&nbsp;<img alt="${afterTransMed}"  src="https://img.shields.io/badge/${afterTransMed}-%20-feb628?style=flat">`;
+        }
+
+        // Title shows both sides with their respective pills
+        commentBody += startDetails(
+            `<strong>${name}</strong>>: ${before}${beforePills} → ${after}${afterPills}`
+        );
+
+        // Tables remain as before/after sections
         commentBody += `**Before \`${before}\`**\n\n`;
         commentBody += renderAlertsTable(beforeSummary);
 
-        // After
-        const afterSummary = await getComponentSummary(u.to.identifier);
         commentBody += `\n\n**After \`${after}\`**\n\n`;
         commentBody += renderAlertsTable(afterSummary);
 
