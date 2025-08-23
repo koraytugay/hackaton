@@ -38300,60 +38300,6 @@ function renderAlertsTable(summary) {
   out += deduped.join("\n");
   return out;
 }
-var BRAND = {
-  green: "2ea043",
-  // GitHub success
-  purple: "8957e5",
-  // GitHub purple
-  gray: "6e7781"
-  // GitHub muted
-};
-var SEV = {
-  critical: "bf001f",
-  high: "fc6d07",
-  medium: "feb628"
-};
-function shield(label, value, color, style = "flat") {
-  const l = encodeURIComponent(label);
-  const v = encodeURIComponent(String(value));
-  return `<img alt="${label}: ${value}" src="https://img.shields.io/badge/${l}-${v}-${color}?style=${style}">`;
-}
-function statRow(introduced, upgraded, removed) {
-  const parts = [
-    shield("New", introduced, BRAND.green),
-    "&nbsp;",
-    shield("Upgraded", upgraded, BRAND.purple),
-    "&nbsp;",
-    shield("Removed", removed, BRAND.gray)
-  ];
-  return parts.join("");
-}
-function triPills(c, h, m, title = "") {
-  const t = title ? ` title="${title}"` : "";
-  return `<span${t}>` + shield("C", c, SEV.critical) + "&nbsp;" + shield("H", h, SEV.high) + "&nbsp;" + shield("M", m, SEV.medium) + `</span>`;
-}
-function componentSummaryLine(name, version, direct, trans) {
-  let s = `<strong>${name} ${version}</strong> &nbsp;\u2022&nbsp; ${triPills(direct.c, direct.h, direct.m, "Direct findings")}`;
-  if (trans && (trans.c || trans.h || trans.m)) {
-    s += ` &nbsp;\u2014&nbsp; ${triPills(trans.c, trans.h, trans.m, "Transitive findings")}`;
-  }
-  return s;
-}
-function sectionHeading(emoji, text) {
-  return `
-
-### ${emoji} ${text}
-`;
-}
-function legendDetails() {
-  return `<details><summary>Legend & Colors</summary>
-
-**Severity:** ${shield("C", "Critical", SEV.critical)} ${shield("H", "High", SEV.high)} ${shield("M", "Medium", SEV.medium)}  
-**Badges:** numbers show count of policy violations at that severity.
-
-</details>
-`;
-}
 async function run() {
   try {
     let filePath = path.resolve(process.cwd(), "source-dependency-tree.txt");
@@ -38402,36 +38348,48 @@ async function run() {
     const introducedCount = introduced.length;
     const removedCount = removed.length;
     const upgradeCount = upgrades.length;
-    let commentBody = `# \u{1F9EA} Nexus IQ \u2022 PR Risk Dashboard
-
-`;
-    commentBody += `> Snapshot of dependency policy risk introduced by this PR.
-
-`;
-    commentBody += statRow(introducedCount, upgradeCount, removedCount) + "\n";
-    commentBody += legendDetails();
+    let commentBody = `# Nexus IQ Report for this PR`;
+    commentBody += "\n\n";
+    commentBody += `## Summary`;
+    commentBody += "\n";
+    commentBody += `\u2022 Introduced ${introducedCount} new dependencies`;
+    commentBody += "\n";
+    commentBody += `\u2022 Version changed: ${upgradeCount} dependencies`;
+    commentBody += "\n";
+    commentBody += `\u2022 Removed: ${removedCount} dependencies`;
+    commentBody += "\n";
     if (introduced.length) {
-      commentBody += sectionHeading("\u{1F9E9}", "New Components");
+      commentBody += "## New Components\n\n";
       for (const dep of introduced) {
         const directSummary = await getComponentSummary(dep.identifier);
-        const direct = {
-          c: getNumberOfViolations(directSummary, 8, 10),
-          h: getNumberOfViolations(directSummary, 4, 7),
-          m: getNumberOfViolations(directSummary, 2, 3)
-        };
-        let trans = { c: 0, h: 0, m: 0 };
+        let numberOfCriticalViolations = getNumberOfViolations(directSummary, 8, 10);
+        let numberOfHighViolations = getNumberOfViolations(directSummary, 4, 7);
+        let numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
+        let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
+        title += `&nbsp;<img alt="${numberOfCriticalViolations}" src="https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat">`;
+        title += `&nbsp;<img alt="${numberOfHighViolations}" src="https://img.shields.io/badge/${numberOfHighViolations}-%20-fc6d07?style=flat">`;
+        title += `&nbsp;<img alt="${numberOfMediumViolations}" src="https://img.shields.io/badge/${numberOfMediumViolations}-%20-feb628?style=flat">`;
+        let numberOfTransitiveCritical = 0;
+        let numberOfTransitiveHigh = 0;
+        let numberOfTransitiveMedium = 0;
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
-            if (!childSummary?.alerts?.length)
+            if (!childSummary?.alerts?.length) {
               continue;
-            trans.c += getNumberOfViolations(childSummary, 8, 10);
-            trans.h += getNumberOfViolations(childSummary, 4, 7);
-            trans.m += getNumberOfViolations(childSummary, 2, 3);
+            }
+            numberOfTransitiveCritical += getNumberOfViolations(childSummary, 8, 10);
+            numberOfTransitiveHigh += getNumberOfViolations(childSummary, 4, 7);
+            numberOfTransitiveMedium += getNumberOfViolations(childSummary, 2, 3);
           }
         }
-        const header = componentSummaryLine(nameOf(dep), versionOf(dep), direct, trans);
-        commentBody += startDetails(header);
+        if (numberOfTransitiveCritical > 0 || numberOfTransitiveHigh > 0 || numberOfTransitiveMedium > 0) {
+          title += " - ";
+          title += `&nbsp;<img alt="${numberOfTransitiveCritical}" src="https://img.shields.io/badge/${numberOfTransitiveCritical}-%20-bf001f?style=flat">`;
+          title += `&nbsp;<img alt="${numberOfTransitiveHigh}" src="https://img.shields.io/badge/${numberOfTransitiveHigh}-%20-fc6d07?style=flat">`;
+          title += `&nbsp;<img alt="${numberOfTransitiveMedium}" src="https://img.shields.io/badge/${numberOfTransitiveMedium}-%20-feb628?style=flat">`;
+        }
+        commentBody += startDetails(title);
         commentBody += renderAlertsTable(directSummary);
         if (dep.children?.length) {
           for (const child of dep.children) {
@@ -38440,7 +38398,7 @@ async function run() {
               continue;
             commentBody += `
 
-**Transitive:** \`${nameOf(child)} ${versionOf(child)}\`
+**Transitive: \`${nameOf(child)} ${versionOf(child)}\`**
 
 `;
             commentBody += renderAlertsTable(childSummary);
@@ -38451,47 +38409,65 @@ async function run() {
       commentBody += "\n";
     }
     if (upgrades.length) {
-      commentBody += sectionHeading("\u2B06\uFE0F", "Version Changes");
+      commentBody += "## Version Changes";
+      commentBody += "\n";
       for (const u of upgrades) {
         const name = u.name;
         const before = versionOf(u.from);
         const after = versionOf(u.to);
         const beforeSummary = await getComponentSummary(u.from.identifier);
-        const afterSummary = await getComponentSummary(u.to.identifier);
-        const beforeDirect = {
-          c: getNumberOfViolations(beforeSummary, 8, 10),
-          h: getNumberOfViolations(beforeSummary, 4, 7),
-          m: getNumberOfViolations(beforeSummary, 2, 3)
-        };
-        const afterDirect = {
-          c: getNumberOfViolations(afterSummary, 8, 10),
-          h: getNumberOfViolations(afterSummary, 4, 7),
-          m: getNumberOfViolations(afterSummary, 2, 3)
-        };
-        let beforeTrans = { c: 0, h: 0, m: 0 };
+        const beforeCrit = getNumberOfViolations(beforeSummary, 8, 10);
+        const beforeHigh = getNumberOfViolations(beforeSummary, 4, 7);
+        const beforeMed = getNumberOfViolations(beforeSummary, 2, 3);
+        let beforePills = "";
+        beforePills += `&nbsp;<img alt="${beforeCrit}" src="https://img.shields.io/badge/${beforeCrit}-%20-bf001f?style=flat">`;
+        beforePills += `&nbsp;<img alt="${beforeHigh}" src="https://img.shields.io/badge/${beforeHigh}-%20-fc6d07?style=flat">`;
+        beforePills += `&nbsp;<img alt="${beforeMed}"  src="https://img.shields.io/badge/${beforeMed}-%20-feb628?style=flat">`;
+        let beforeTransCrit = 0, beforeTransHigh = 0, beforeTransMed = 0;
         if (u.from.children?.length) {
           for (const child of u.from.children) {
             const cs = await getComponentSummary(child.identifier);
             if (!cs?.alerts?.length)
               continue;
-            beforeTrans.c += getNumberOfViolations(cs, 8, 10);
-            beforeTrans.h += getNumberOfViolations(cs, 4, 7);
-            beforeTrans.m += getNumberOfViolations(cs, 2, 3);
+            beforeTransCrit += getNumberOfViolations(cs, 8, 10);
+            beforeTransHigh += getNumberOfViolations(cs, 4, 7);
+            beforeTransMed += getNumberOfViolations(cs, 2, 3);
           }
         }
-        let afterTrans = { c: 0, h: 0, m: 0 };
+        if (beforeTransCrit > 0 || beforeTransHigh > 0 || beforeTransMed > 0) {
+          beforePills += " - ";
+          beforePills += `&nbsp;<img alt="${beforeTransCrit}" src="https://img.shields.io/badge/${beforeTransCrit}-%20-bf001f?style=flat">`;
+          beforePills += `&nbsp;<img alt="${beforeTransHigh}" src="https://img.shields.io/badge/${beforeTransHigh}-%20-fc6d07?style=flat">`;
+          beforePills += `&nbsp;<img alt="${beforeTransMed}"  src="https://img.shields.io/badge/${beforeTransMed}-%20-feb628?style=flat">`;
+        }
+        const afterSummary = await getComponentSummary(u.to.identifier);
+        const afterCrit = getNumberOfViolations(afterSummary, 8, 10);
+        const afterHigh = getNumberOfViolations(afterSummary, 4, 7);
+        const afterMed = getNumberOfViolations(afterSummary, 2, 3);
+        let afterPills = "";
+        afterPills += `&nbsp;<img alt="${afterCrit}" src="https://img.shields.io/badge/${afterCrit}-%20-bf001f?style=flat">`;
+        afterPills += `&nbsp;<img alt="${afterHigh}" src="https://img.shields.io/badge/${afterHigh}-%20-fc6d07?style=flat">`;
+        afterPills += `&nbsp;<img alt="${afterMed}"  src="https://img.shields.io/badge/${afterMed}-%20-feb628?style=flat">`;
+        let afterTransCrit = 0, afterTransHigh = 0, afterTransMed = 0;
         if (u.to.children?.length) {
           for (const child of u.to.children) {
             const cs = await getComponentSummary(child.identifier);
             if (!cs?.alerts?.length)
               continue;
-            afterTrans.c += getNumberOfViolations(cs, 8, 10);
-            afterTrans.h += getNumberOfViolations(cs, 4, 7);
-            afterTrans.m += getNumberOfViolations(cs, 2, 3);
+            afterTransCrit += getNumberOfViolations(cs, 8, 10);
+            afterTransHigh += getNumberOfViolations(cs, 4, 7);
+            afterTransMed += getNumberOfViolations(cs, 2, 3);
           }
         }
-        const header = `<strong>${name}</strong> &nbsp;\`${before}\` ${triPills(beforeDirect.c, beforeDirect.h, beforeDirect.m, "Before (direct)")}` + (beforeTrans.c || beforeTrans.h || beforeTrans.m ? ` &nbsp;\u2014&nbsp; ${triPills(beforeTrans.c, beforeTrans.h, beforeTrans.m, "Before (transitive)")}` : "") + ` &nbsp;\u2192&nbsp; \`${after}\` ${triPills(afterDirect.c, afterDirect.h, afterDirect.m, "After (direct)")}` + (afterTrans.c || afterTrans.h || afterTrans.m ? ` &nbsp;\u2014&nbsp; ${triPills(afterTrans.c, afterTrans.h, afterTrans.m, "After (transitive)")}` : "");
-        commentBody += startDetails(header);
+        if (afterTransCrit > 0 || afterTransHigh > 0 || afterTransMed > 0) {
+          afterPills += " - ";
+          afterPills += `&nbsp;<img alt="${afterTransCrit}" src="https://img.shields.io/badge/${afterTransCrit}-%20-bf001f?style=flat">`;
+          afterPills += `&nbsp;<img alt="${afterTransHigh}" src="https://img.shields.io/badge/${afterTransHigh}-%20-fc6d07?style=flat">`;
+          afterPills += `&nbsp;<img alt="${afterTransMed}"  src="https://img.shields.io/badge/${afterTransMed}-%20-feb628?style=flat">`;
+        }
+        commentBody += startDetails(
+          `<strong>${name}</strong>>: ${before}${beforePills} \u2192 ${after}${afterPills}`
+        );
         commentBody += `**Before \`${before}\`**
 
 `;
@@ -38507,27 +38483,36 @@ async function run() {
       commentBody += "\n";
     }
     if (removed.length) {
-      commentBody += sectionHeading("\u2796", "Removed Components");
+      commentBody += "## Removed Components\n\n";
       for (const dep of removed) {
         const directSummary = await getComponentSummary(dep.identifier);
-        const direct = {
-          c: getNumberOfViolations(directSummary, 8, 10),
-          h: getNumberOfViolations(directSummary, 4, 7),
-          m: getNumberOfViolations(directSummary, 2, 3)
-        };
-        let trans = { c: 0, h: 0, m: 0 };
+        let numberOfCriticalViolations = getNumberOfViolations(directSummary, 8, 10);
+        let numberOfHighViolations = getNumberOfViolations(directSummary, 4, 7);
+        let numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
+        let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
+        title += `&nbsp;<img alt="${numberOfCriticalViolations}" src="https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat">`;
+        title += `&nbsp;<img alt="${numberOfHighViolations}" src="https://img.shields.io/badge/${numberOfHighViolations}-%20-fc6d07?style=flat">`;
+        title += `&nbsp;<img alt="${numberOfMediumViolations}" src="https://img.shields.io/badge/${numberOfMediumViolations}-%20-feb628?style=flat">`;
+        let numberOfTransitiveCritical = 0;
+        let numberOfTransitiveHigh = 0;
+        let numberOfTransitiveMedium = 0;
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
             if (!childSummary?.alerts?.length)
               continue;
-            trans.c += getNumberOfViolations(childSummary, 8, 10);
-            trans.h += getNumberOfViolations(childSummary, 4, 7);
-            trans.m += getNumberOfViolations(childSummary, 2, 3);
+            numberOfTransitiveCritical += getNumberOfViolations(childSummary, 8, 10);
+            numberOfTransitiveHigh += getNumberOfViolations(childSummary, 4, 7);
+            numberOfTransitiveMedium += getNumberOfViolations(childSummary, 2, 3);
           }
         }
-        const header = componentSummaryLine(nameOf(dep), versionOf(dep), direct, trans);
-        commentBody += startDetails(header);
+        if (numberOfTransitiveCritical > 0 || numberOfTransitiveHigh > 0 || numberOfTransitiveMedium > 0) {
+          title += " - ";
+          title += `&nbsp;<img alt="${numberOfTransitiveCritical}" src="https://img.shields.io/badge/${numberOfTransitiveCritical}-%20-bf001f?style=flat">`;
+          title += `&nbsp;<img alt="${numberOfTransitiveHigh}" src="https://img.shields.io/badge/${numberOfTransitiveHigh}-%20-fc6d07?style=flat">`;
+          title += `&nbsp;<img alt="${numberOfTransitiveMedium}" src="https://img.shields.io/badge/${numberOfTransitiveMedium}-%20-feb628?style=flat">`;
+        }
+        commentBody += startDetails(title);
         commentBody += renderAlertsTable(directSummary);
         if (dep.children?.length) {
           for (const child of dep.children) {
@@ -38536,7 +38521,7 @@ async function run() {
               continue;
             commentBody += `
 
-**Transitive Removed:** \`${nameOf(child)} ${versionOf(child)}\`
+**Transitive Removed: \`${nameOf(child)} ${versionOf(child)}\`**
 
 `;
             commentBody += renderAlertsTable(childSummary);
