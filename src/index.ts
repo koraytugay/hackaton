@@ -79,11 +79,11 @@ type SevInfo = { label: string; color: string };
 
 function severityInfo(n: number): SevInfo {
   if (n >= 8) return { label: `${n}`,  color: 'bf001f' }; // severity.critical
-  if (n >= 4) return { label: `${n}`,    color: 'fc6d07' }; // severity.severe
-  if (n >= 2) return { label: `${n}`,  color: 'feb628' }; // severity.moderate
-  if (n >=  1) return { label: `${n}`,       color: '3942a8' }; // severity.low
-  if (n === 0) return { label: `${n}`,     color: '15a2ff' }; // severity.none
-  return { label: 'Unspecified', color: '000000' };           // severity.unspecified
+  if (n >= 4) return { label: `${n}`,  color: 'fc6d07' }; // severity.severe (high)
+  if (n >= 2) return { label: `${n}`,  color: 'feb628' }; // severity.moderate (medium)
+  if (n >= 1) return { label: `${n}`,  color: '3942a8' }; // severity.low
+  if (n === 0) return { label: `${n}`,  color: '15a2ff' }; // severity.none
+  return { label: 'Unspecified', color: '000000' };        // severity.unspecified
 }
 
 function severityBadge(n: number): string {
@@ -98,10 +98,9 @@ function computeDiff(left: Dependency[], right: Dependency[]): Dependency[] {
   return left.filter(d => !rightSet.has(keyOf(d)));
 }
 
-function detectUpgrades(master: Dependency[], source: Dependency[]) {
+function detectUpgrades(master: Dependency[], source: Dependency[]): { name: string; from: Dependency; to: Dependency }[] {
   const masterByName = new Map<string, Dependency>();
   for (const m of master) {
-    // keep the "first" by name; if multiple, last one wins (rare for direct deps)
     masterByName.set(nameOf(m), m);
   }
   const upgrades: { name: string; from: Dependency; to: Dependency }[] = [];
@@ -160,9 +159,9 @@ function renderAlertsTable(summary?: ComponentSummary) {
 
   const deduped = Array.from(new Set(rows));
 
-  // If processing produced no rows, also show the message
   if (deduped.length === 0) {
     return 'This component does not have any vulnerabilities.';
+    // alternatively: 'No policy violations detected for this component.'
   }
 
   let out = '';
@@ -170,6 +169,73 @@ function renderAlertsTable(summary?: ComponentSummary) {
   out += '|--|--|--|--|\n';
   out += deduped.join('\n');
   return out;
+}
+
+// ===== UI Helpers (NEW; UI-only) =====
+const BRAND = {
+  green: '2ea043',   // GitHub success
+  purple: '8957e5',  // GitHub purple
+  gray: '6e7781',    // GitHub muted
+};
+
+const SEV = {
+  critical: 'bf001f',
+  high: 'fc6d07',
+  medium: 'feb628',
+};
+
+function shield(label: string, value: string | number, color: string, style: 'flat' | 'for-the-badge' = 'flat') {
+  const l = encodeURIComponent(label);
+  const v = encodeURIComponent(String(value));
+  return `<img alt="${label}: ${value}" src="https://img.shields.io/badge/${l}-${v}-${color}?style=${style}">`;
+}
+
+function statRow(introduced: number, upgraded: number, removed: number) {
+  const parts = [
+    shield('New', introduced, BRAND.green),
+    '&nbsp;',
+    shield('Upgraded', upgraded, BRAND.purple),
+    '&nbsp;',
+    shield('Removed', removed, BRAND.gray),
+  ];
+  return parts.join('');
+}
+
+/** Compact C/H/M pill trio (Critical / High / Medium) */
+function triPills(c: number, h: number, m: number, title = '') {
+  const t = title ? ` title="${title}"` : '';
+  return `<span${t}>` +
+      shield('C', c, SEV.critical) + '&nbsp;' +
+      shield('H', h, SEV.high) + '&nbsp;' +
+      shield('M', m, SEV.medium) +
+      `</span>`;
+}
+
+/** Component line for <summary>: shows direct and (optional) transitive totals */
+function componentSummaryLine(
+    name: string,
+    version: string,
+    direct: { c: number; h: number; m: number },
+    trans?: { c: number; h: number; m: number }
+) {
+  let s = `<strong>${name} ${version}</strong> &nbsp;•&nbsp; ${triPills(direct.c, direct.h, direct.m, 'Direct findings')}`;
+  if (trans && (trans.c || trans.h || trans.m)) {
+    s += ` &nbsp;—&nbsp; ${triPills(trans.c, trans.h, trans.m, 'Transitive findings')}`;
+  }
+  return s;
+}
+
+function sectionHeading(emoji: string, text: string) {
+  return `\n\n### ${emoji} ${text}\n`;
+}
+
+function legendDetails() {
+  return `<details><summary>Legend & Colors</summary>
+
+**Severity:** ${shield('C', 'Critical', SEV.critical)} ${shield('H', 'High', SEV.high)} ${shield('M', 'Medium', SEV.medium)}  
+**Badges:** numbers show count of policy violations at that severity.
+
+</details>\n`;
 }
 
 // ===== Main =====
@@ -228,69 +294,53 @@ async function run(): Promise<void> {
       upgrades.forEach(u => core.info(`${u.name}: ${versionOf(u.from)} -> ${versionOf(u.to)}`));
     }
 
-    // --- Build comment ---
+    // --- Build comment (UI refreshed) ---
     const introducedCount = introduced.length;
     const removedCount = removed.length;
     const upgradeCount = upgrades.length;
 
-    let commentBody = `# Nexus IQ Report for this PR`;
-    commentBody += '\n\n';
-    commentBody += `## Summary`;
-    commentBody += '\n';
-    commentBody += `• Introduced ${introducedCount} new dependencies`;
-    commentBody += '\n';
-    commentBody += `• Version changed: ${upgradeCount} dependencies`;
-    commentBody += '\n';
-    commentBody += `• Removed: ${removedCount} dependencies`;
-    commentBody += '\n';
+    let commentBody = `# 🧪 Nexus IQ • PR Risk Dashboard\n\n`;
+    commentBody += `> Snapshot of dependency policy risk introduced by this PR.\n\n`;
+    commentBody += statRow(introducedCount, upgradeCount, removedCount) + '\n';
+    commentBody += legendDetails();
 
-    // Introduced
+    // === New Components ===
     if (introduced.length) {
-      commentBody += '## New Components\n\n';
+      commentBody += sectionHeading('🧩', 'New Components');
+
       for (const dep of introduced) {
         const directSummary = await getComponentSummary(dep.identifier);
 
-        let numberOfCriticalViolations = getNumberOfViolations(directSummary, 8, 10);
-        let numberOfHighViolations = getNumberOfViolations(directSummary, 4, 7);
-        let numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
+        const direct = {
+          c: getNumberOfViolations(directSummary, 8, 10),
+          h: getNumberOfViolations(directSummary, 4, 7),
+          m: getNumberOfViolations(directSummary, 2, 3),
+        };
 
-        let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
-        title += `&nbsp;<img alt="${numberOfCriticalViolations}" src="https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat">`
-        title += `&nbsp;<img alt="${numberOfHighViolations}" src="https://img.shields.io/badge/${numberOfHighViolations}-%20-fc6d07?style=flat">`
-        title += `&nbsp;<img alt="${numberOfMediumViolations}" src="https://img.shields.io/badge/${numberOfMediumViolations}-%20-feb628?style=flat">`
-
-        let numberOfTransitiveCritical = 0;
-        let numberOfTransitiveHigh = 0;
-        let numberOfTransitiveMedium = 0;
+        let trans = { c: 0, h: 0, m: 0 };
 
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
-            if (!childSummary?.alerts?.length) {
-              continue;
-            }
-            numberOfTransitiveCritical += getNumberOfViolations(childSummary, 8, 10);
-            numberOfTransitiveHigh += getNumberOfViolations(childSummary, 4, 7);
-            numberOfTransitiveMedium += getNumberOfViolations(childSummary, 2, 3);
+            if (!childSummary?.alerts?.length) continue;
+            trans.c += getNumberOfViolations(childSummary, 8, 10);
+            trans.h += getNumberOfViolations(childSummary, 4, 7);
+            trans.m += getNumberOfViolations(childSummary, 2, 3);
           }
         }
 
-        if (numberOfTransitiveCritical > 0 || numberOfTransitiveHigh > 0 || numberOfTransitiveMedium > 0) {
-          title += ' - '
-          title += `&nbsp;<img alt="${numberOfTransitiveCritical}" src="https://img.shields.io/badge/${numberOfTransitiveCritical}-%20-bf001f?style=flat">`
-          title += `&nbsp;<img alt="${numberOfTransitiveHigh}" src="https://img.shields.io/badge/${numberOfTransitiveHigh}-%20-fc6d07?style=flat">`
-          title += `&nbsp;<img alt="${numberOfTransitiveMedium}" src="https://img.shields.io/badge/${numberOfTransitiveMedium}-%20-feb628?style=flat">`
-        }
+        const header = componentSummaryLine(nameOf(dep), versionOf(dep), direct, trans);
+        commentBody += startDetails(header);
 
-        commentBody += startDetails(title);
-
+        // Direct findings
         commentBody += renderAlertsTable(directSummary);
 
+        // Transitives with alerts
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
             if (!childSummary?.alerts?.length) continue; // skip quiet transitives
-            commentBody += `\n\n**Transitive: \`${nameOf(child)} ${versionOf(child)}\`**\n\n`;
+            commentBody += `\n\n**Transitive:** \`${nameOf(child)} ${versionOf(child)}\`\n\n`;
             commentBody += renderAlertsTable(childSummary);
           }
         }
@@ -300,76 +350,66 @@ async function run(): Promise<void> {
       commentBody += '\n';
     }
 
+    // === Version Changes ===
     if (upgrades.length) {
-      commentBody += '## Version Changes';
-      commentBody += '\n';
+      commentBody += sectionHeading('⬆️', 'Version Changes');
+
       for (const u of upgrades) {
         const name = u.name;
         const before = versionOf(u.from);
         const after = versionOf(u.to);
 
-        // ===== BEFORE pills (direct + transitive aggregate) =====
         const beforeSummary = await getComponentSummary(u.from.identifier);
-        const beforeCrit = getNumberOfViolations(beforeSummary, 8, 10);
-        const beforeHigh = getNumberOfViolations(beforeSummary, 4, 7);
-        const beforeMed  = getNumberOfViolations(beforeSummary, 2, 3);
+        const afterSummary  = await getComponentSummary(u.to.identifier);
 
-        let beforePills = '';
-        beforePills += `&nbsp;<img alt="${beforeCrit}" src="https://img.shields.io/badge/${beforeCrit}-%20-bf001f?style=flat">`;
-        beforePills += `&nbsp;<img alt="${beforeHigh}" src="https://img.shields.io/badge/${beforeHigh}-%20-fc6d07?style=flat">`;
-        beforePills += `&nbsp;<img alt="${beforeMed}"  src="https://img.shields.io/badge/${beforeMed}-%20-feb628?style=flat">`;
+        const beforeDirect = {
+          c: getNumberOfViolations(beforeSummary, 8, 10),
+          h: getNumberOfViolations(beforeSummary, 4, 7),
+          m: getNumberOfViolations(beforeSummary, 2, 3),
+        };
 
-        let beforeTransCrit = 0, beforeTransHigh = 0, beforeTransMed = 0;
+        const afterDirect = {
+          c: getNumberOfViolations(afterSummary, 8, 10),
+          h: getNumberOfViolations(afterSummary, 4, 7),
+          m: getNumberOfViolations(afterSummary, 2, 3),
+        };
+
+        let beforeTrans = { c: 0, h: 0, m: 0 };
         if (u.from.children?.length) {
           for (const child of u.from.children) {
             const cs = await getComponentSummary(child.identifier);
             if (!cs?.alerts?.length) continue;
-            beforeTransCrit += getNumberOfViolations(cs, 8, 10);
-            beforeTransHigh += getNumberOfViolations(cs, 4, 7);
-            beforeTransMed  += getNumberOfViolations(cs, 2, 3);
+            beforeTrans.c += getNumberOfViolations(cs, 8, 10);
+            beforeTrans.h += getNumberOfViolations(cs, 4, 7);
+            beforeTrans.m += getNumberOfViolations(cs, 2, 3);
           }
         }
-        if (beforeTransCrit > 0 || beforeTransHigh > 0 || beforeTransMed > 0) {
-          beforePills += ' - ';
-          beforePills += `&nbsp;<img alt="${beforeTransCrit}" src="https://img.shields.io/badge/${beforeTransCrit}-%20-bf001f?style=flat">`;
-          beforePills += `&nbsp;<img alt="${beforeTransHigh}" src="https://img.shields.io/badge/${beforeTransHigh}-%20-fc6d07?style=flat">`;
-          beforePills += `&nbsp;<img alt="${beforeTransMed}"  src="https://img.shields.io/badge/${beforeTransMed}-%20-feb628?style=flat">`;
-        }
 
-        // ===== AFTER pills (direct + transitive aggregate) =====
-        const afterSummary = await getComponentSummary(u.to.identifier);
-        const afterCrit = getNumberOfViolations(afterSummary, 8, 10);
-        const afterHigh = getNumberOfViolations(afterSummary, 4, 7);
-        const afterMed  = getNumberOfViolations(afterSummary, 2, 3);
-
-        let afterPills = '';
-        afterPills += `&nbsp;<img alt="${afterCrit}" src="https://img.shields.io/badge/${afterCrit}-%20-bf001f?style=flat">`;
-        afterPills += `&nbsp;<img alt="${afterHigh}" src="https://img.shields.io/badge/${afterHigh}-%20-fc6d07?style=flat">`;
-        afterPills += `&nbsp;<img alt="${afterMed}"  src="https://img.shields.io/badge/${afterMed}-%20-feb628?style=flat">`;
-
-        let afterTransCrit = 0, afterTransHigh = 0, afterTransMed = 0;
+        let afterTrans = { c: 0, h: 0, m: 0 };
         if (u.to.children?.length) {
           for (const child of u.to.children) {
             const cs = await getComponentSummary(child.identifier);
             if (!cs?.alerts?.length) continue;
-            afterTransCrit += getNumberOfViolations(cs, 8, 10);
-            afterTransHigh += getNumberOfViolations(cs, 4, 7);
-            afterTransMed  += getNumberOfViolations(cs, 2, 3);
+            afterTrans.c += getNumberOfViolations(cs, 8, 10);
+            afterTrans.h += getNumberOfViolations(cs, 4, 7);
+            afterTrans.m += getNumberOfViolations(cs, 2, 3);
           }
         }
-        if (afterTransCrit > 0 || afterTransHigh > 0 || afterTransMed > 0) {
-          afterPills += ' - ';
-          afterPills += `&nbsp;<img alt="${afterTransCrit}" src="https://img.shields.io/badge/${afterTransCrit}-%20-bf001f?style=flat">`;
-          afterPills += `&nbsp;<img alt="${afterTransHigh}" src="https://img.shields.io/badge/${afterTransHigh}-%20-fc6d07?style=flat">`;
-          afterPills += `&nbsp;<img alt="${afterTransMed}"  src="https://img.shields.io/badge/${afterTransMed}-%20-feb628?style=flat">`;
-        }
 
-        // Title shows both sides with their respective pills
-        commentBody += startDetails(
-            `<strong>${name}</strong>>: ${before}${beforePills} → ${after}${afterPills}`
-        );
+        const header =
+            `<strong>${name}</strong> &nbsp;` +
+            `\`${before}\` ${triPills(beforeDirect.c, beforeDirect.h, beforeDirect.m, 'Before (direct)')}` +
+            (beforeTrans.c || beforeTrans.h || beforeTrans.m
+                ? ` &nbsp;—&nbsp; ${triPills(beforeTrans.c, beforeTrans.h, beforeTrans.m, 'Before (transitive)')}`
+                : '') +
+            ` &nbsp;→&nbsp; ` +
+            `\`${after}\` ${triPills(afterDirect.c, afterDirect.h, afterDirect.m, 'After (direct)')}` +
+            (afterTrans.c || afterTrans.h || afterTrans.m
+                ? ` &nbsp;—&nbsp; ${triPills(afterTrans.c, afterTrans.h, afterTrans.m, 'After (transitive)')}`
+                : '');
 
-        // Tables remain as before/after sections
+        commentBody += startDetails(header);
+
         commentBody += `**Before \`${before}\`**\n\n`;
         commentBody += renderAlertsTable(beforeSummary);
 
@@ -381,55 +421,43 @@ async function run(): Promise<void> {
       commentBody += '\n';
     }
 
-    // Solved (Removed)
+    // === Removed Components ===
     if (removed.length) {
-      commentBody += '## Removed Components\n\n';
+      commentBody += sectionHeading('➖', 'Removed Components');
+
       for (const dep of removed) {
-        // Direct component summary & pills
         const directSummary = await getComponentSummary(dep.identifier);
 
-        let numberOfCriticalViolations = getNumberOfViolations(directSummary, 8, 10);
-        let numberOfHighViolations = getNumberOfViolations(directSummary, 4, 7);
-        let numberOfMediumViolations = getNumberOfViolations(directSummary, 2, 3);
+        const direct = {
+          c: getNumberOfViolations(directSummary, 8, 10),
+          h: getNumberOfViolations(directSummary, 4, 7),
+          m: getNumberOfViolations(directSummary, 2, 3),
+        };
 
-        let title = `<strong>${nameOf(dep)} ${versionOf(dep)}</strong>`;
-        title += `&nbsp;<img alt="${numberOfCriticalViolations}" src="https://img.shields.io/badge/${numberOfCriticalViolations}-%20-bf001f?style=flat">`;
-        title += `&nbsp;<img alt="${numberOfHighViolations}" src="https://img.shields.io/badge/${numberOfHighViolations}-%20-fc6d07?style=flat">`;
-        title += `&nbsp;<img alt="${numberOfMediumViolations}" src="https://img.shields.io/badge/${numberOfMediumViolations}-%20-feb628?style=flat">`;
+        let trans = { c: 0, h: 0, m: 0 };
 
-        // Aggregate transitive pills (same logic as for New Components)
-        let numberOfTransitiveCritical = 0;
-        let numberOfTransitiveHigh = 0;
-        let numberOfTransitiveMedium = 0;
-
-        if (dep.children?.length) {
-          for (const child of dep.children) {
-            const childSummary = await getComponentSummary(child.identifier);
-            if (!childSummary?.alerts?.length) continue; // skip quiet transitives
-            numberOfTransitiveCritical += getNumberOfViolations(childSummary, 8, 10);
-            numberOfTransitiveHigh += getNumberOfViolations(childSummary, 4, 7);
-            numberOfTransitiveMedium += getNumberOfViolations(childSummary, 2, 3);
-          }
-        }
-
-        if (numberOfTransitiveCritical > 0 || numberOfTransitiveHigh > 0 || numberOfTransitiveMedium > 0) {
-          title += ' - ';
-          title += `&nbsp;<img alt="${numberOfTransitiveCritical}" src="https://img.shields.io/badge/${numberOfTransitiveCritical}-%20-bf001f?style=flat">`;
-          title += `&nbsp;<img alt="${numberOfTransitiveHigh}" src="https://img.shields.io/badge/${numberOfTransitiveHigh}-%20-fc6d07?style=flat">`;
-          title += `&nbsp;<img alt="${numberOfTransitiveMedium}" src="https://img.shields.io/badge/${numberOfTransitiveMedium}-%20-feb628?style=flat">`;
-        }
-
-        commentBody += startDetails(title);
-
-        // Direct table
-        commentBody += renderAlertsTable(directSummary);
-
-        // Per-transitive details (unchanged, still shown if any alerts)
         if (dep.children?.length) {
           for (const child of dep.children) {
             const childSummary = await getComponentSummary(child.identifier);
             if (!childSummary?.alerts?.length) continue;
-            commentBody += `\n\n**Transitive Removed: \`${nameOf(child)} ${versionOf(child)}\`**\n\n`;
+            trans.c += getNumberOfViolations(childSummary, 8, 10);
+            trans.h += getNumberOfViolations(childSummary, 4, 7);
+            trans.m += getNumberOfViolations(childSummary, 2, 3);
+          }
+        }
+
+        const header = componentSummaryLine(nameOf(dep), versionOf(dep), direct, trans);
+        commentBody += startDetails(header);
+
+        // Direct table
+        commentBody += renderAlertsTable(directSummary);
+
+        // Per-transitive details (only if any alerts)
+        if (dep.children?.length) {
+          for (const child of dep.children) {
+            const childSummary = await getComponentSummary(child.identifier);
+            if (!childSummary?.alerts?.length) continue;
+            commentBody += `\n\n**Transitive Removed:** \`${nameOf(child)} ${versionOf(child)}\`\n\n`;
             commentBody += renderAlertsTable(childSummary);
           }
         }
@@ -666,4 +694,3 @@ async function postComment(commentBody: string, opts: { mode?: 'update' | 'repla
 }
 
 run();
-
